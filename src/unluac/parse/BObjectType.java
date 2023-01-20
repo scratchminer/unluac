@@ -24,6 +24,12 @@ abstract public class BObjectType<T extends BObject>  {
       }
       
     });
+    
+    // Remove all the null values that used to be temporary locals
+    while(values.contains(null)) {
+      values.remove(null);
+      length = length.decrement();
+    }
     return new BList<T>(length, values);
   }
   

@@ -110,5 +110,13 @@ public class BInteger extends BObject {
       }
     }
   }
-
+  
+  public BInteger decrement() {
+    if(big == null) {
+      return new BInteger(n - 1);
+    }
+    else {
+      return new BInteger(big.subtract(BigInteger.ONE));
+    }
+  }
 }

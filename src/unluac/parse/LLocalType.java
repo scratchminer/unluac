@@ -18,6 +18,8 @@ public class LLocalType extends BObjectType<LLocal> {
       System.out.print(" from " + start.asInt() + " to " + end.asInt());
       System.out.println();
     }
+    // Get rid of the temporary locals always named "(temp)" by pdc
+    if(name.equals(new LString("(temp)"))) return null;
     return new LLocal(name, start, end);
   }
   
