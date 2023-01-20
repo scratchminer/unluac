@@ -41,6 +41,6 @@ for LUACFILE in $(find "$INPUTDIR" -name '*.luac'); do
 	java -jar $(dirname $0)/unluac.jar $LUACFILE > $LUAFILE
 	
 	# Remove the old bytecode file if '-r' was passed
-	[ $REMOVE -eq 1 ] && rm -f $LUAFILE
+	[ $REMOVE -eq 1 ] && rm -f $LUACFILE
 done
 unset IFS

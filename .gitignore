@@ -1,6 +1,9 @@
 # Log file
 *.log
 
+# Dumb macOS again... *mutter, grumble*
+.DS_Store
+
 # The entire build directory should be ignored
 build/*
 
