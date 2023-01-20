@@ -1,1 +1,0 @@
-(function() print "hello" end)()

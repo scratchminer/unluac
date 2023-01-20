@@ -1,3 +1,0 @@
-repeat
-  f()
-until false

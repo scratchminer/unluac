@@ -1,1 +1,0 @@
-print(x == 0 or a.first and a.record.field == value)

@@ -1,1 +1,0 @@
-print(a == b or c or d)
