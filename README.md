@@ -6,6 +6,8 @@ Fork of https://sourceforge.net/projects/unluac/ to work with the Playdate's Lua
 
 - Download the JAR from the releases section
 - `java -jar unluac.jar (input_file.luac) > (output_file.lua)`
+- Alternately, you can use `unluac.sh` in this repo to work on a lot of files:
+	`./unluac.sh (input directory) [optional output directory]`
 
 ## To build from source:
 (Note: you need the Java Development Kit to build the JAR file)
