@@ -1,14 +1,8 @@
-# Compiled class file
-*.class
-
 # Log file
 *.log
 
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+# The entire build directory should be ignored
+build/*
 
 # Package Files #
 *.jar
