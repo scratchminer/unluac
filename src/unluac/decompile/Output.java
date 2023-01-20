@@ -54,7 +54,7 @@ public class Output {
   private void start() {
     if(position == 0) {
       for(int i = indentationLevel; i != 0; i--) {
-        out.print(" ");
+        out.print("\t");
         position++;
       }
     }
