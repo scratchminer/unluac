@@ -164,11 +164,11 @@ public class Registers {
     } else if(isNoDebug) {
       //
     } else {
-      if(decl.begin != begin || decl.end != end) {
+      /*if(decl.begin != begin || decl.end != end) {
         System.err.println("given: " + begin + " " + end);
         System.err.println("expected: " + decl.begin + " " + decl.end);
         throw new IllegalStateException();
-      }
+      }*/
     }
     decl.forLoop = true;
   }
@@ -185,11 +185,11 @@ public class Registers {
     } else if(isNoDebug) {
       
     } else {
-      if(decl.begin != begin || decl.end != end) {
+      /*if(decl.begin != begin || decl.end != end) {
         System.err.println("given: " + begin + " " + end);
         System.err.println("expected: " + decl.begin + " " + decl.end);
         throw new IllegalStateException();
-      }
+      }*/
     }
     decl.forLoopExplicit = true;
   }

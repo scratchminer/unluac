@@ -38,7 +38,7 @@ for LUACFILE in $(find "$INPUTDIR" -name '*.luac'); do
 	[ ! -f $LUAFILE ] && mkdir -p $(dirname "$LUAFILE")
 	
 	# Run unluac
-	java -jar $(dirname $0)/unluac.jar $LUACFILE > $LUAFILE
+	java -jar $(dirname $0)/unluac.jar --nodebug -o $LUAFILE $LUACFILE
 	
 	# Remove the old bytecode file if '-r' was passed
 	[ $REMOVE -eq 1 ] && rm -f $LUACFILE
