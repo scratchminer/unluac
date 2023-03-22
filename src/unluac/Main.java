@@ -24,7 +24,7 @@ import unluac.util.FileUtils;
 
 public class Main {
 
-  public static String version = "2023.01.20-scratchminer";
+  public static String version = "2023.03.22-scratchminer";
   
   public static void main(String[] args) {
     String fn = null;

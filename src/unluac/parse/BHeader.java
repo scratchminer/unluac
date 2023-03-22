@@ -85,7 +85,7 @@ public class BHeader {
     int minor = versionNumber & 0x0F;
     
     if (versionNumber == 0x03) {
-      int tempNumber = (versionNumber << 7) | (0x7F & buffer.get());
+      int tempNumber = ((versionNumber << 8) | (0xFF & buffer.get())) & 0x1FF;
       major = tempNumber / 100;
       minor = tempNumber % 100;
       versionNumber = major << 4 | minor;
@@ -163,6 +163,7 @@ public class BHeader {
       main.upvalues[0].name = "_ENV";
     }
     main.setLevel(1);
+    if(main.stripped) System.err.println("Warning: This file was stripped when it was compiled.\nYou may need to edit it manually.");
   }
   
   public void write(OutputStream out) throws IOException {

@@ -33,12 +33,13 @@ for LUACFILE in $(find "$INPUTDIR" -name '*.luac'); do
 	
 	# Get the name of the new source file
 	LUAFILE=$(echo "${LUACFILE//$INPUTDIR/$OUTPUTDIR}" | sed 's+.luac+.lua+gI')
+    echo Decompiling $LUAFILE...
 	
 	# If the folder containing it doesn't exist, create it
 	[ ! -f $LUAFILE ] && mkdir -p $(dirname "$LUAFILE")
 	
 	# Run unluac
-	java -jar $(dirname $0)/unluac.jar --nodebug -o $LUAFILE $LUACFILE
+	java -jar $(dirname $0)/unluac.jar -o $LUAFILE $LUACFILE
 	
 	# Remove the old bytecode file if '-r' was passed
 	[ $REMOVE -eq 1 ] && rm -f $LUACFILE

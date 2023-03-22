@@ -74,30 +74,15 @@ public class Decompiler {
     length = function.code.length;
     code = new Code(function);
     if(function.stripped || getConfiguration().variable == Configuration.VariableMode.NODEBUG) {
-      if(getConfiguration().variable == Configuration.VariableMode.FINDER) {
-        if(function.locals.length >= function.numParams) {
-          Declaration[] tempdeclList = new Declaration[function.locals.length];
-          for(int i = 0; i < tempdeclList.length; i++) {
-            tempdeclList[i] = new Declaration(function.locals[i], code);
-          }
-          declList = VariableFinder.process(this, function.numParams, function.maximumStackSize, tempdeclList);
-          registers = declList.length;
-        } else {
-          declList = VariableFinder.process(this, function.numParams, function.maximumStackSize);
+      if(function.locals.length >= function.numParams) {
+        Declaration[] tempdeclList = new Declaration[function.locals.length];
+        for(int i = 0; i < tempdeclList.length; i++) {
+          tempdeclList[i] = new Declaration(function.locals[i], code);
         }
+        declList = VariableFinder.process(this, function.numParams, function.maximumStackSize, tempdeclList);
+        registers = function.maximumStackSize;
       } else {
-        declList = new Declaration[function.maximumStackSize];
-        int scopeEnd = length + function.header.version.outerblockscopeadjustment.get();
-        int i;
-        for(i = 0; i < Math.min(function.numParams, function.maximumStackSize); i++) {
-          declList[i] = new Declaration("A" + i + "_" + function.level, 0, scopeEnd);
-        }
-        if(getVersion().varargtype.get() != Version.VarArgType.ELLIPSIS && (function.vararg & 1) != 0 && i < function.maximumStackSize) {
-          declList[i++] = new Declaration("arg", 0, scopeEnd);
-        }
-        for(; i < function.maximumStackSize; i++) {
-          declList[i] = new Declaration("L" + i + "_" + function.level, 0, scopeEnd);
-        }
+        declList = VariableFinder.process(this, function.numParams, function.maximumStackSize);
       }
     } else if(function.locals.length >= function.numParams) {
       declList = new Declaration[function.locals.length];
@@ -126,7 +111,7 @@ public class Decompiler {
   
   public boolean getNoDebug() {
     return function.header.config.variable == Configuration.VariableMode.NODEBUG || 
-        function.stripped && function.header.config.variable == Configuration.VariableMode.DEFAULT;
+        function.stripped;
   }
   
   public State decompile() {

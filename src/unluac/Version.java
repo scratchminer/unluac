@@ -55,6 +55,7 @@ public class Version {
     LUA50,
     LUA53,
     LUA54,
+    LUA54BETA,
   }
   
   public static enum UpvalueType {
@@ -278,7 +279,7 @@ public class Version {
           useupvaluecountinheader = new Setting<>(true);
           headertype = HeaderType.LUA54;
           stringtype = StringType.LUA54;
-          constanttype = ConstantType.LUA54;
+          constanttype = ConstantType.LUA54BETA;
           upvaluetype = UpvalueType.LUA54;
           functiontype = FunctionType.LUA54;
           opcodemap = OpcodeMapType.LUA54BETA;

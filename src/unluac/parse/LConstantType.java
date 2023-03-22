@@ -14,6 +14,7 @@ public abstract class LConstantType extends BObjectType<LObject> {
       case LUA50: return new LConstantType50();
       case LUA53: return new LConstantType53();
       case LUA54: return new LConstantType54();
+      case LUA54BETA: return new LConstantType54Beta();
       default: throw new IllegalStateException();
     }
   }
@@ -174,8 +175,6 @@ class LConstantType54 extends LConstantType {
         return header.linteger.parse(buffer, header);
       case 0x13:
         return header.lfloat.parse(buffer, header);
-      case 0x23:
-        return header.linteger.parse(buffer, header, true);
       case 4:
         return header.string.parse(buffer, header);
       case 0x14: {
@@ -209,7 +208,62 @@ class LConstantType54 extends LConstantType {
       }
     } else if(object instanceof LString) {
       LString s = (LString) object;
-      out.write(s.islong ? 0x14 : 4);
+      out.write(s.islong ? 0x24 : 0x14);
+      header.string.write(out, header, s);
+    } else {
+      throw new IllegalStateException();
+    }
+  }
+  
+}
+
+class LConstantType54Beta extends LConstantType {
+
+  @Override
+  public LObject parse(ByteBuffer buffer, BHeader header) {
+    int type = 0xFF & buffer.get();
+    switch(type) {
+      case 0:
+        return LNil.NIL;
+      case 1:
+        return header.bool.parse(buffer, header);
+      case 3:
+      case 0x23:
+        return header.linteger.parse(buffer, header);
+      case 0x13:
+        return header.lfloat.parse(buffer, header);
+      case 4:
+      case 0x14:
+        return header.string.parse(buffer, header);
+      case 0x24: {
+        LString s = header.string.parse(buffer, header);
+        s.islong = true;
+        return s;
+      }
+      default:
+        throw new IllegalStateException("Invalid constant type: " + type);
+    }
+  }
+  
+  @Override
+  public void write(OutputStream out, BHeader header, LObject object) throws IOException {
+    if(object instanceof LNil) {
+      out.write(0);
+    } else if(object instanceof LBoolean) {
+      out.write(1);
+      header.bool.write(out, header, (LBoolean)object);
+    } else if(object instanceof LNumber) {
+      LNumber n = (LNumber)object;
+      if(!n.integralType()) {
+        out.write(0x13);
+        header.lfloat.write(out, header, (LNumber)object);
+      } else {
+        out.write(3);
+        header.linteger.write(out, header, (LNumber)object);
+      }
+    } else if(object instanceof LString) {
+      LString s = (LString) object;
+      out.write(s.islong ? 0x24 : 0x14);
       header.string.write(out, header, s);
     } else {
       throw new IllegalStateException();

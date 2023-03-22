@@ -204,7 +204,7 @@ public class OpcodeMap {
         map[2] = Op.LOADF;
         map[3] = Op.LOADK;
         map[4] = Op.LOADKX;
-        map[5] = Op.DEFAULT54;
+        map[5] = Op.LOADBOOL;
         map[6] = Op.LOADNIL52;
         map[7] = Op.GETUPVAL;
         map[8] = Op.SETUPVAL;
