@@ -1373,7 +1373,7 @@ public class ControlFlowHandler {
         boolean needsDoEnd = true;
         for(Block block : state.blocks) {
           if(block.contains(decl.begin)) {
-            if(block.scopeEnd() == decl.end) {
+            if(block.scopeEnd() >= decl.end) {
               block.useScope();
               needsDoEnd = false;
               break;
@@ -1382,13 +1382,13 @@ public class ControlFlowHandler {
             }
           }
         }
-        if(needsDoEnd) {
+        /*if(needsDoEnd) {
           // Without accounting for the order of declarations, we might
           // create another do..end block later that would eliminate the
           // need for this one. But order of decls should fix this.
           state.blocks.add(new DoEndBlock(state.function, begin, decl.end + 1));
           strictScopeCheck(state);
-        }
+        }*/
       }
     }
   }
@@ -1795,7 +1795,7 @@ public class ControlFlowHandler {
     if(code.isUpvalueDeclaration(line)) return false;
     switch(code.op(line)) {
       case MOVE:
-      case LOADI: case LOADU: case LOADF: case LOADK: case LOADKX:
+      case LOADI: case LOADF: case LOADK: case LOADKX:
       case LOADBOOL: case LOADFALSE: case LOADTRUE: case LFALSESKIP:
       case GETGLOBAL:
       case GETUPVAL:

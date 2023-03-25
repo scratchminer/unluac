@@ -66,9 +66,6 @@ abstract public class LFunctionType extends BObjectType<LFunction> {
     }
     if(s.lines.length.asInt() == 0 && s.locals.length.asInt() == 0) {
       lfunc.stripped = true;
-      if(lfunc.numUpvalues >= 1 && (lfunc.upvalues[0].name == null || lfunc.upvalues[0].name.isEmpty())) {
-        lfunc.upvalues[0].name = "_ENV";
-      }
     }
     
     return lfunc;

@@ -11,6 +11,8 @@ public class BinaryExpression extends Expression {
   private final Expression right;
   private final int associativity;
   
+  private boolean referenceChecking = false;
+  
   public static BinaryExpression replaceRight(BinaryExpression template, Expression replacement) {
     return new BinaryExpression(template.op, template.left, replacement, template.precedence, template.associativity);
   }
@@ -70,6 +72,22 @@ public class BinaryExpression extends Expression {
   
   private boolean rightGroup() {
     return precedence > right.precedence || (precedence == right.precedence && associativity == ASSOCIATIVITY_LEFT);
+  }
+  
+  @Override
+  public boolean referencesTable() {
+    if(referenceChecking) return true;
+    referenceChecking = true;
+    
+    boolean referencesSelf = left.referencesTable() || right.referencesTable();
+    
+    referenceChecking = false;
+    return referencesSelf;
+  }
+  
+  @Override
+  public boolean referencesTableNonRecursive() {
+    return left.referencesTableNonRecursive() || right.referencesTableNonRecursive();
   }
   
 }

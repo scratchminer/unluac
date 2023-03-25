@@ -12,6 +12,8 @@ public class FunctionCall extends Expression {
   private final Expression[] arguments;
   private final boolean multiple;
   
+  private boolean referenceChecking = false;
+  
   public FunctionCall(Expression function, Expression[] arguments, boolean multiple) {
     super(PRECEDENCE_ATOMIC);
     this.function = function;
@@ -99,6 +101,36 @@ public class FunctionCall extends Expression {
     out.print("(");
     Expression.printSequence(d, out, args, false, true);
     out.print(")");
+  }
+  
+  @Override
+  public boolean referencesTable() {
+    if(referenceChecking) return true;
+    referenceChecking = true;
+    
+    boolean referencesSelf = false;
+    for(Expression argument : arguments) {
+      if(argument.referencesTable()) {
+        referencesSelf = true;
+        break;
+      }
+    }
+  
+    referenceChecking = false;
+    return referencesSelf;
+  }
+  
+  @Override
+  public boolean referencesTableNonRecursive() {
+    boolean referencesSelf = false;
+    for(Expression argument : arguments) {
+      if(argument.referencesTableNonRecursive()) {
+        referencesSelf = true;
+        break;
+      }
+    }
+    
+    return referencesSelf;
   }
   
 }

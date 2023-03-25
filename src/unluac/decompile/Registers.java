@@ -55,7 +55,7 @@ public class Registers {
   }
   
   public boolean isAssignable(int register, int line) {
-    return isLocal(register, line) && (!decls[register][line].forLoop || isNoDebug);
+    return isLocal(register, line) && (!decls[register][line].forLoop);
   }
   
   public boolean isLocal(int register, int line) {
@@ -127,11 +127,7 @@ public class Registers {
   }
   
   public Expression getValue(int register, int line) {
-    if(isNoDebug) {
-      return getExpression(register, line);
-    } else {
-      return values[register][line - 1];
-    }
+    return values[register][line - 1];
   }
 
   public int getUpdated(int register, int line) {
@@ -194,7 +190,7 @@ public class Registers {
     decl.forLoopExplicit = true;
   }
   
-  private void newDeclaration(Declaration decl, int register, int begin, int end) {
+  public void newDeclaration(Declaration decl, int register, int begin, int end) {
     for(int line = begin; line <= end; line++) {
       decls[register][line] = decl;
     }

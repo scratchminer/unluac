@@ -9,6 +9,8 @@ public class TableReference extends Expression {
   private final Expression table;
   private final Expression index;
   
+  private boolean referenceChecking = false;
+  
   public TableReference(Expression table, Expression index) {
     super(PRECEDENCE_ATOMIC);
     this.table = table;
@@ -77,6 +79,21 @@ public class TableReference extends Expression {
   public String getField() {
     return index.asName();
   }
-
+  
+  @Override
+  public boolean referencesTable() {
+    if(referenceChecking) return true;
+    referenceChecking = true;
+    
+    boolean referencesSelf = table.referencesTable();
+    
+    referenceChecking = false;
+    return referencesSelf;
+  }
+  
+  @Override
+  public boolean referencesTableNonRecursive() {
+    return table.referencesTableNonRecursive();
+  }
   
 }

@@ -76,8 +76,7 @@ public enum Op {
   SHR("shr", OpV.LUA53, OperandFormat.AR, OperandFormat.BRK, OperandFormat.CRK),
   BNOT("bnot", OpV.LUA53 | OpV.LUA54 | OpV.LUA54BETA, OperandFormat.AR, OperandFormat.BR),
   // Lua 5.4 Opcodes
-  LOADI("loadsi", OpV.LUA54 | OpV.LUA54BETA, OperandFormat.AR, OperandFormat.sBxI),
-  LOADU("loadi", OpV.LUA54BETA, OperandFormat.AR, OperandFormat.BxI),
+  LOADI("loadi", OpV.LUA54 | OpV.LUA54BETA, OperandFormat.AR, OperandFormat.BxI),
   LOADF("loadf", OpV.LUA54 | OpV.LUA54BETA, OperandFormat.AR, OperandFormat.sBxF),
   LOADFALSE("loadfalse", OpV.LUA54 | OpV.LUA54BETA, OperandFormat.AR),
   LFALSESKIP("lfalseskip", OpV.LUA54 | OpV.LUA54BETA, OperandFormat.AR),

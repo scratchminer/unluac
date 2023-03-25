@@ -34,10 +34,17 @@ public class TableLiteral extends Expression {
   
   private boolean isObject = true;
   private boolean isList = true;
+  
+  private boolean gettingIndex = false;
+  private boolean walking = false;
+  private boolean referenceChecking = false;
+  
   private int listLength = 1;
   
   private final int hashSize;
   private int hashCount;
+  
+  private String name;
   
   public TableLiteral(int arraySize, int hashSize) {
     super(PRECEDENCE_ATOMIC);
@@ -45,9 +52,20 @@ public class TableLiteral extends Expression {
     this.hashSize = hashSize;
     hashCount = 0;
   }
+  
+  public TableLiteral(int arraySize, int hashSize, String name) {
+    super(PRECEDENCE_ATOMIC);
+    entries = new ArrayList<Entry>(arraySize + hashSize);
+    this.hashSize = hashSize;
+    this.name = name;
+    hashCount = 0;
+  }
 
   @Override
   public void walk(Walker w) {
+    if(walking) return;
+    walking = true;
+    
     Collections.sort(entries);
     w.visitExpression(this);
     boolean lastEntry = false;
@@ -60,15 +78,22 @@ public class TableLiteral extends Expression {
         }
       }
     }
+    
+    walking = false;
   }
   
   @Override
   public int getConstantIndex() {
+    if(gettingIndex) return -1;
+    gettingIndex = true;
+    
     int index = -1;
     for(Entry entry : entries) {
       index = Math.max(entry.key.getConstantIndex(), index);
       index = Math.max(entry.value.getConstantIndex(), index);
     }
+    
+    gettingIndex = false;
     return index;
   }
   
@@ -96,7 +121,7 @@ public class TableLiteral extends Expression {
         out.println();
         out.indent();
       }
-      printEntry(d, 0, out);
+      printEntry(d, 0, out, name);
       if(!entries.get(0).value.isMultiple()) {
         for(int index = 1; index < entries.size(); index++) {
           out.print(",");
@@ -105,7 +130,7 @@ public class TableLiteral extends Expression {
           } else {
             out.print(" ");
           }
-          printEntry(d, index, out);
+          printEntry(d, index, out, name);
           if(entries.get(index).value.isMultiple()) {
             break;
           }
@@ -119,12 +144,46 @@ public class TableLiteral extends Expression {
     }    
   }
   
-  private void printEntry(Decompiler d, int index, Output out) {
+  public boolean referencesTable() {
+    if(referenceChecking) return true;
+    referenceChecking = true;
+    
+    boolean referencesSelf = false;
+    for(Entry entry : entries) {
+      if(entry.key.referencesTable() || entry.value.referencesTable()) {
+        referencesSelf = true;
+        break;
+      }
+    }
+    
+    referenceChecking = false;
+    return referencesSelf;
+  }
+  
+  @Override
+  public boolean referencesTableNonRecursive() {
+    if(referenceChecking) return true;
+    referenceChecking = true;
+    
+    boolean referencesSelf = false;
+    for(Entry entry : entries) {
+      if(entry.key.referencesTableNonRecursive() || entry.value.referencesTableNonRecursive()) {
+        referencesSelf = true;
+        break;
+      }
+    }
+    
+    referenceChecking = false;
+    return referencesSelf;
+  }
+  
+  private void printEntry(Decompiler d, int index, Output out, String tableName) {
     Entry entry = entries.get(index);
     Expression key = entry.key;
     Expression value = entry.value;
     boolean isList = entry.isList;
     boolean multiple = index + 1 >= entries.size() || value.isMultiple();
+    
     if(isList && key.isInteger() && listLength == key.asInteger()) {
       if(multiple) {
         value.printMultiple(d, out);
@@ -132,15 +191,29 @@ public class TableLiteral extends Expression {
         value.print(d, out);
       }
       listLength++;
-    } else if(entry.hash/*isObject && key.isIdentifier()*/) {
+    } else if(entry.hash) {
       out.print(key.asName());
       out.print(" = ");
-      value.print(d, out);
+      
+      referenceChecking = true;
+      if(value.referencesTableNonRecursive()) out.print(name);
+      else value.print(d, out);
+      referenceChecking = false;
+      
     } else {
       out.print("[");
-      key.printBraced(d, out);
+      
+      referenceChecking = true;
+      if(key.referencesTableNonRecursive()) out.print(name);
+      else key.printBraced(d, out);
+      referenceChecking = false;
+      
       out.print("] = ");
-      value.print(d, out);
+      
+      referenceChecking = true;
+      if(value.referencesTableNonRecursive()) out.print(name);
+      else value.print(d, out);
+      referenceChecking = false;
     }
   }
   

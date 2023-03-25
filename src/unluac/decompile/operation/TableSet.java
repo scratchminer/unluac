@@ -32,7 +32,13 @@ public class TableSet extends Operation {
   @Override
   public List<Statement> process(Registers r, Block block) {
     // .isTableLiteral() is sufficient when there is debugging info
-    if(!r.isNoDebug && table.isTableLiteral() && (value.isMultiple() || table.isNewEntryAllowed())) {
+    // If there isn't any, we need to check if the table references itself in order to avoid recursion
+    
+    if(table.isTableLiteral() && (value.isMultiple() || table.isNewEntryAllowed())) {
+      if(r.isNoDebug && ((TableLiteral)table).referencesTableNonRecursive()) {
+        return Arrays.asList(new Assignment(new TableTarget(table, index), value, line));
+      }
+      
       table.addEntry(new TableLiteral.Entry(index, value, !isTable, timestamp));
       return Collections.emptyList();
     } else {

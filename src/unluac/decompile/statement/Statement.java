@@ -18,9 +18,6 @@ abstract public class Statement {
     for(int i = 0; i < n; i++) {
       boolean last = (i + 1 == n);
       Statement stmt = stmts.get(i);
-      if(stmt.beginsWithParen() && (i > 0 || d.getVersion().allowpreceedingsemicolon.get())) {
-        out.print(";");
-      }
       if(last) {
         stmt.printTail(d, out);
       } else {
@@ -31,7 +28,7 @@ abstract public class Statement {
       }
     }
   }
-    
+  
   abstract public void print(Decompiler d, Output out);
   
   public void printTail(Decompiler d, Output out) {

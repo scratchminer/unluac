@@ -73,7 +73,7 @@ public class Decompiler {
     registers = function.maximumStackSize;
     length = function.code.length;
     code = new Code(function);
-    if(function.stripped || getConfiguration().variable == Configuration.VariableMode.NODEBUG) {
+    if(function.stripped) {
       if(function.locals.length >= function.numParams) {
         Declaration[] tempdeclList = new Declaration[function.locals.length];
         for(int i = 0; i < tempdeclList.length; i++) {
@@ -110,8 +110,7 @@ public class Decompiler {
   }
   
   public boolean getNoDebug() {
-    return function.header.config.variable == Configuration.VariableMode.NODEBUG || 
-        function.stripped;
+    return function.header.config.variable == Configuration.VariableMode.NODEBUG || function.stripped;
   }
   
   public State decompile() {
@@ -290,6 +289,8 @@ public class Decompiler {
     int B = code.B(line);
     int C = code.C(line);
     int Bx = code.Bx(line);
+    Declaration d;
+    
     switch(code.op(line)) {
       case MOVE:
         operations.add(new RegisterSet(line, A, r.getExpression(B, line)));
@@ -372,10 +373,12 @@ public class Decompiler {
         operations.add(new TableSet(line, upvalues.getExpression(A), f.getConstantExpression(B), r.getKExpression54(C, code.k(line), line), true, line));
         break;
       case NEWTABLE50:
-        operations.add(new RegisterSet(line, A, new TableLiteral(fb2int50(B), C == 0 ? 0 : 1 << C)));
+        d = r.getDeclaration(A, line);
+        operations.add(new RegisterSet(line, A, new TableLiteral(fb2int50(B), C == 0 ? 0 : 1 << C, d != null ? d.name : "")));
         break;
       case NEWTABLE:
-        operations.add(new RegisterSet(line, A, new TableLiteral(fb2int(B), fb2int(C))));
+        d = r.getDeclaration(A, line);
+        operations.add(new RegisterSet(line, A, new TableLiteral(fb2int(B), fb2int(C), d != null ? d.name : "")));
         break;
       case NEWTABLE54: {
         int arraySize = C;
@@ -383,7 +386,8 @@ public class Decompiler {
           if(code.op(line + 1) != Op.EXTRAARG) throw new IllegalStateException();
           arraySize += code.Ax(line + 1) * (code.getExtractor().C.max() + 1);
         }
-        operations.add(new RegisterSet(line, A, new TableLiteral(arraySize, B == 0 ? 0 : (1 << (B - 1)))));
+        d = r.getDeclaration(A, line);
+        operations.add(new RegisterSet(line, A, new TableLiteral(arraySize, B == 0 ? 0 : (1 << (B - 1)), d != null ? d.name : "")));
         break;
       }
       case SELF: {

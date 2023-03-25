@@ -281,4 +281,12 @@ abstract public class Expression {
     return false;
   }
   
+  public boolean referencesTable() {
+    return false;
+  }
+  
+  public boolean referencesTableNonRecursive() {
+    return false;
+  }
+
 }

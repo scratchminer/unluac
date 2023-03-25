@@ -9,6 +9,8 @@ public class UnaryExpression extends Expression {
   private final String op;
   private final Expression expression;
   
+  private boolean referenceChecking = false;
+  
   public UnaryExpression(String op, Expression expression, int precedence) {
     super(precedence);
     this.op = op;
@@ -37,6 +39,22 @@ public class UnaryExpression extends Expression {
     if(precedence > expression.precedence) out.print("(");
     expression.print(d, out);
     if(precedence > expression.precedence) out.print(")");
+  }
+  
+  @Override
+  public boolean referencesTable() {
+    if(referenceChecking) return true;
+    referenceChecking = true;
+    
+    boolean referencesSelf = expression.referencesTable();
+    
+    referenceChecking = false;
+    return referencesSelf;
+  }
+  
+  @Override
+  public boolean referencesTableNonRecursive() {
+    return expression.referencesTableNonRecursive();
   }
   
 }
