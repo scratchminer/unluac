@@ -28,20 +28,20 @@ else
 fi
 
 if [ -z "$OUTPUTDIR" ]; then OUTPUTDIR=$INPUTDIR; fi
-IFS=$'\n'
-for LUACFILE in $(find "$INPUTDIR" -name '*.luac'); do
-	
+IFS=$(printf '\n')
+find "$INPUTDIR" ! -name "$(printf "*\n*")" -name '*.luac' > tmp
+while IFS= read -r LUACFILE; do
 	# Get the name of the new source file
-	LUAFILE=$(echo "${LUACFILE//$INPUTDIR/$OUTPUTDIR}" | sed 's+.luac+.lua+gI')
-    echo Decompiling $LUAFILE...
+	LUAFILE=$(echo "$LUACFILE" | sed "s+$INPUTDIR+$OUTPUTDIR+gI" | sed 's+.luac+.lua+gI')
+    	echo "Decompiling $LUAFILE..."
 	
 	# If the folder containing it doesn't exist, create it
-	[ ! -f $LUAFILE ] && mkdir -p $(dirname "$LUAFILE")
+	[ ! -f "$LUAFILE" ] && mkdir -p "$(dirname "$LUAFILE")"
 	
 	# Run unluac
-	java -jar $(dirname $0)/unluac.jar -o $LUAFILE $LUACFILE
+	java -jar "$(dirname "$0")/unluac.jar" -o "$LUAFILE" "$LUACFILE"
 	
 	# Remove the old bytecode file if '-r' was passed
-	[ $REMOVE -eq 1 ] && rm -f $LUACFILE
-done
-unset IFS
+	[ $REMOVE -eq 1 ] && rm -f "$LUACFILE"
+done < tmp
+rm tmp
