@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 
 # unluac.sh
-# A shell script to make unluac.jar easier to use. (Still requires the JRE, though)
+# A bash script to make unluac.jar easier to use. (Still requires the JRE, though)
 
 if [ $# -eq 0 ]; then
 	echo "Use this shell script to bulk-decompile Playdate Lua bytecode with unluac."
