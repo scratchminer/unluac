@@ -120,7 +120,7 @@ public class ControlFlowHandler {
     resolve_lines(state);
     initialize_blocks(state);
     find_fixed_blocks(state);
-    find_while_loops(state);
+    find_while_loops(state, d.declList);
     find_repeat_loops(state);
     find_if_break(state, d.declList);
     find_set_blocks(state);
@@ -180,6 +180,9 @@ public class ControlFlowHandler {
   }
   
   private static int find_loadboolblock(State state, int target) {
+    if(target < 1) {
+      return -1;
+    }
     int loadboolblock = -1;
     Op op = state.code.op(target);
     if(op == Op.LOADBOOL) {
@@ -312,12 +315,7 @@ public class ControlFlowHandler {
   }
   
   private static void process_condition(State state, boolean[] skip, int line, Condition c, boolean invert) {
-    int target;
-    if(is_jmp_raw(state, line + 1)) {
-      target = state.code.target(line + 1);
-    } else {
-      target = line + 1;
-    }
+    int target = state.code.target(line + 1);
     if(invert) {
       c = c.inverse();
     }
@@ -407,47 +405,27 @@ public class ControlFlowHandler {
           }
           case TEST: {
             Condition c;
-            int target;
-            if(is_jmp_raw(state, line + 1)) {
-              target = code.target(line + 1);
-            } else {
-              target = line + 1;
-            }
+            int target = code.target(line + 1);
             c = new TestCondition(line, code.A(line));
             handle_test(state, skip, line, c, target, code.C(line) != 0);
             break;
           }
           case TEST54: {
             Condition c;
-            int target;
-            if(is_jmp_raw(state, line + 1)) {
-              target = code.target(line + 1);
-            } else {
-              target = line + 1;
-            }
+            int target = code.target(line + 1);
             c = new TestCondition(line, code.A(line));
             handle_test(state, skip, line, c, target, code.k(line));
             break;
           }
           case TESTSET: {
             Condition c = new TestCondition(line, code.B(line));
-            int target;
-            if(is_jmp_raw(state, line + 1)) {
-              target = code.target(line + 1);
-            } else {
-              target = line + 1;
-            }
+            int target = code.target(line + 1);
             handle_testset(state, skip, line, c, target, code.A(line), code.C(line) != 0);
             break;
           }
           case TESTSET54: {
             Condition c = new TestCondition(line, code.B(line));
-            int target;
-            if(is_jmp_raw(state, line + 1)) {
-              target = code.target(line + 1);
-            } else {
-              target = line + 1;
-            }
+            int target = code.target(line + 1);
             handle_testset(state, skip, line, c, target, code.A(line), code.k(line));
             break;
           }
@@ -513,11 +491,11 @@ public class ControlFlowHandler {
           boolean forvarClose = false;
           boolean innerClose = false;
           int close = target - 1;
-          if(close >= line + 1 && is_close(state, close) && code.A(close) == A + 3) {
+          if(close >= line + 1 && is_close(state, close) && get_close_value(state, close) == A + 3) {
             forvarClose = true;
             close--;
           }
-          if(close >= line + 1 && is_close(state, close) && code.A(close) <= A + 3 + C) {
+          if(close >= line + 1 && is_close(state, close) && get_close_value(state, close) <= A + 3 + C) {
             innerClose = true;
           }
           
@@ -549,17 +527,22 @@ public class ControlFlowHandler {
           
           int A = code.A(line);
           int target = code.target(line);
+          int begin = line + 1;
+          int end = target + 1;
           
-          boolean forvarClose = false;
+          boolean forvarPreClose = false;
+          boolean forvarPostClose = false;
           int closeLine = target - 1;
-          if(closeLine >= line + 1 && is_close(state, closeLine) && code.A(closeLine) == A + 3) {
-            forvarClose = true;
+          if(closeLine >= line + 1 && is_close(state, closeLine) && get_close_value(state, closeLine) == A + 3) {
+            forvarPreClose = true;
             closeLine--;
+          } else if(end <= code.length && is_close(state, end) && get_close_value(state, end) == A + 3) {
+            forvarPostClose = true;
           }
           
           ForBlock block = new ForBlock51(
-            state.function, line + 1, target + 1, A,
-            get_close_type(state, closeLine), closeLine, forvarClose
+            state.function, begin, end, A,
+            get_close_type(state, closeLine), closeLine, forvarPreClose, forvarPostClose
           );
           
           block.handleVariableDeclarations(r);
@@ -573,7 +556,7 @@ public class ControlFlowHandler {
           
           boolean innerClose = false;
           int close = target - 1;
-          if(close >= line + 1 && is_close(state, close) && code.A(close) == A + 3 + C) {
+          if(close >= line + 1 && is_close(state, close) && get_close_value(state, close) == A + 3 + C) {
             innerClose = true;
           }
           
@@ -590,7 +573,7 @@ public class ControlFlowHandler {
           
           boolean forvarClose = false;
           int close = target - 1;
-          if(close >= line + 1 && is_close(state, close) && code.A(close) == A + 4) {
+          if(close >= line + 1 && is_close(state, close) && get_close_value(state, close) == A + 4) {
             forvarClose = true;
             close--;
           }
@@ -627,11 +610,11 @@ public class ControlFlowHandler {
     }
   }
   
-  private static void find_while_loops(State state) {
+  private static void find_while_loops(State state, Declaration[] declList) {
     List<Block> blocks = state.blocks;
     Branch j = state.end_branch;
     while(j != null) {
-      if(j.type == Branch.Type.jump && j.targetFirst <= j.line) {
+      if(j.type == Branch.Type.jump && j.targetFirst <= j.line && !splits_decl(j.targetFirst, j.targetFirst, j.line + 1, declList)) {
         int line = j.targetFirst;
         int loopback = line;
         int end = j.line + 1;
@@ -801,11 +784,18 @@ public class ControlFlowHandler {
     if(!stack.isEmpty() && stack_reach(state, stack) <= line) {
       Branch top = stack.pop();
       int literalEnd = state.code.target(top.targetFirst - 1);
-      block = new IfThenEndBlock(
-        state.function, state.r, top.cond, top.targetFirst, top.targetSecond,
-        get_close_type(state, top.targetSecond - 1), top.targetSecond - 1,
-        literalEnd != top.targetSecond
-      );
+      if(state.function.header.version.useifbreakrewrite.get() && state.function.header.version.usegoto.get() && top.targetFirst + 1 == top.targetSecond && is_jmp(state, top.targetFirst)) {
+        // If this were actually an if statement, it would have been rewritten. It hasn't been, so it isn't...
+        block = new IfThenEndBlock(state.function, state.r, top.cond.inverse(), top.targetFirst - 1, top.targetFirst - 1);
+        block.addStatement(new Goto(state.function, top.targetFirst - 1, top.targetSecond));
+        state.labels[top.targetSecond] = true;
+      } else {
+        block = new IfThenEndBlock(
+          state.function, state.r, top.cond, top.targetFirst, top.targetSecond,
+          get_close_type(state, top.targetSecond - 1), top.targetSecond - 1,
+          literalEnd != top.targetSecond
+        );
+      }
       state.blocks.add(block);
       remove_branch(state, top);
     }
@@ -979,7 +969,7 @@ public class ControlFlowHandler {
           handled = true;
         }
         
-        if(!handled && !stack.isEmpty() && stack.peek().targetSecond - 1 == b.line) {
+        if(!handled && !stack.isEmpty() && stack.peek().targetSecond - 1 == b.line && enclosing.contains(b.line, b.targetSecond) && b.targetSecond > b.line) {
           Branch top = stack.peek();
           while(top != null && top.targetSecond - 1 == b.line && splits_decl(top.line, top.targetFirst, top.targetSecond, declList)) {
             Block if_block = resolve_if_stack(state, stack, top.targetSecond);
@@ -988,6 +978,11 @@ public class ControlFlowHandler {
           }
           if(top != null && top.targetSecond - 1 == b.line) {
             if(top.targetSecond != b.targetSecond) {
+              // resolve intervening hangers
+              while(!hangingResolver.isEmpty() && !hanging.isEmpty() && is_hanger_resolvable(state, declList, hanging.peek(), hangingResolver.peek())) {
+                resolve_hanger(state, declList, stack, hanging.pop(), hangingResolver.peek());
+              }
+              
               resolve_else(state, stack, hanging, elseStack, top, b, tailTargetSecond);
               stack.pop();
             } else if(!splits_decl(top.line, top.targetFirst, top.targetSecond - 1, declList)) {
@@ -1290,9 +1285,7 @@ public class ControlFlowHandler {
             }
           }
           if(lowerBound > upperBound) {
-            int temp = lowerBound;
-            lowerBound = upperBound;
-            upperBound = temp;
+            throw new IllegalStateException();
           }
           begin = Math.max(lowerBound, begin);
           begin = Math.min(upperBound, begin);
@@ -1373,7 +1366,7 @@ public class ControlFlowHandler {
         boolean needsDoEnd = true;
         for(Block block : state.blocks) {
           if(block.contains(decl.begin)) {
-            if(block.scopeEnd() >= decl.end) {
+            if(block.scopeEnd() == decl.end) {
               block.useScope();
               needsDoEnd = false;
               break;
@@ -1382,13 +1375,13 @@ public class ControlFlowHandler {
             }
           }
         }
-        /*if(needsDoEnd) {
+        if(needsDoEnd) {
           // Without accounting for the order of declarations, we might
           // create another do..end block later that would eliminate the
           // need for this one. But order of decls should fix this.
           state.blocks.add(new DoEndBlock(state.function, begin, decl.end + 1));
           strictScopeCheck(state);
-        }*/
+        }
       }
     }
   }

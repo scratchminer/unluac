@@ -5,6 +5,7 @@ import java.util.Set;
 
 import unluac.decompile.Op;
 import unluac.decompile.OpcodeMap;
+import unluac.decompile.TypeMap;
 import unluac.parse.LConstantType;
 import unluac.parse.LFunctionType;
 import unluac.parse.LHeaderType;
@@ -13,8 +14,8 @@ import unluac.parse.LUpvalueType;
 
 public class Version {
 
-  public static Version getVersion(int major, int minor) {
-    return new Version(major, minor);
+  public static Version getVersion(Configuration config, int major, int minor) {
+    return new Version(config, major, minor);
   }
   
   public static class Setting<T> {
@@ -51,13 +52,6 @@ public class Version {
     LUA54,
   }
   
-  public static enum ConstantType {
-    LUA50,
-    LUA53,
-    LUA54,
-    LUA54BETA,
-  }
-  
   public static enum UpvalueType {
     LUA50,
     LUA54
@@ -69,6 +63,14 @@ public class Version {
     LUA52,
     LUA53,
     LUA54,
+  }
+  
+  public static enum TypeMapType {
+    LUA50,
+    LUA52,
+    LUA53,
+    LUA54,
+    LUA54BETA,
   }
   
   public static enum OpcodeMapType {
@@ -102,6 +104,12 @@ public class Version {
     LUA54,
   }
   
+  public static enum ListLengthMode {
+    STRICT, // Negative is illegal
+    ALLOW_NEGATIVE, // Negative treated as zero
+    IGNORE, // List length is already known; only accept 0 or else ignore
+  }
+  
   public final Setting<VarArgType> varargtype;
   public final Setting<Boolean> useupvaluecountinheader;
   public final Setting<InstructionFormat> instructionformat;
@@ -119,6 +127,11 @@ public class Version {
   public final Setting<Boolean> useifbreakrewrite;
   public final Setting<Boolean> usegoto;
   public final Setting<Integer> rkoffset;
+  public final Setting<Boolean> allownegativeint;
+  public final Setting<ListLengthMode> constantslengthmode;
+  public final Setting<ListLengthMode> functionslengthmode;
+  public final Setting<ListLengthMode> locallengthmode;
+  public final Setting<ListLengthMode> upvaluelengthmode;
   
   private final int major;
   private final int minor;
@@ -129,19 +142,21 @@ public class Version {
   private final LConstantType lconstanttype;
   private final LUpvalueType lupvaluetype;
   private final LFunctionType lfunctiontype;
+  private final TypeMap typemap;
   private final OpcodeMap opcodemap;
   private final Op defaultop;
   
-  private Version(int major, int minor) {
+  private Version(Configuration config, int major, int minor) {
     HeaderType headertype;
     StringType stringtype;
-    ConstantType constanttype;
     UpvalueType upvaluetype;
     FunctionType functiontype;
+    TypeMapType typemap;
     OpcodeMapType opcodemap;
     this.major = major;
     this.minor = minor;
     name = major + "." + minor;
+    final boolean luaj = config.luaj;
     if(major == 5 && minor >= -1 && minor <= 4) {
       switch(minor) {
         case 0:
@@ -149,9 +164,9 @@ public class Version {
           useupvaluecountinheader = new Setting<>(false);
           headertype = HeaderType.LUA50;
           stringtype = StringType.LUA50;
-          constanttype = ConstantType.LUA50;
           upvaluetype = UpvalueType.LUA50;
           functiontype = FunctionType.LUA50;
+          typemap = TypeMapType.LUA50;
           opcodemap = OpcodeMapType.LUA50;
           defaultop = Op.DEFAULT;
           instructionformat = new Setting<>(InstructionFormat.LUA50);
@@ -169,15 +184,20 @@ public class Version {
           useifbreakrewrite = new Setting<>(false);
           usegoto = new Setting<>(false);
           rkoffset = new Setting<>(250);
+          allownegativeint = new Setting<Boolean>(false);
+          constantslengthmode = new Setting<>(ListLengthMode.STRICT);
+          functionslengthmode = new Setting<>(ListLengthMode.STRICT);
+          locallengthmode = new Setting<>(ListLengthMode.STRICT);
+          upvaluelengthmode = new Setting<>(ListLengthMode.STRICT);
           break;
         case 1:
           varargtype = new Setting<>(VarArgType.HYBRID);
           useupvaluecountinheader = new Setting<>(false);
           headertype = HeaderType.LUA51;
           stringtype = StringType.LUA50;
-          constanttype = ConstantType.LUA50;
           upvaluetype = UpvalueType.LUA50;
           functiontype = FunctionType.LUA51;
+          typemap = TypeMapType.LUA50;
           opcodemap = OpcodeMapType.LUA51;
           defaultop = Op.DEFAULT;
           instructionformat = new Setting<>(InstructionFormat.LUA51);
@@ -195,15 +215,20 @@ public class Version {
           useifbreakrewrite = new Setting<>(false);
           usegoto = new Setting<>(false);
           rkoffset = new Setting<>(256);
+          allownegativeint = new Setting<Boolean>(luaj);
+          constantslengthmode = new Setting<>(luaj ? ListLengthMode.ALLOW_NEGATIVE : ListLengthMode.STRICT);
+          functionslengthmode = new Setting<>(luaj ? ListLengthMode.ALLOW_NEGATIVE : ListLengthMode.STRICT);
+          locallengthmode = new Setting<>(luaj ? ListLengthMode.ALLOW_NEGATIVE : ListLengthMode.STRICT);
+          upvaluelengthmode = new Setting<>(luaj ? ListLengthMode.ALLOW_NEGATIVE : ListLengthMode.STRICT);
           break;
         case 2:
           varargtype = new Setting<>(VarArgType.ELLIPSIS);
           useupvaluecountinheader = new Setting<>(false);
           headertype = HeaderType.LUA52;
           stringtype = StringType.LUA50;
-          constanttype = ConstantType.LUA50;
           upvaluetype = UpvalueType.LUA50;
           functiontype = FunctionType.LUA52;
+          typemap = TypeMapType.LUA52;
           opcodemap = OpcodeMapType.LUA52;
           defaultop = Op.DEFAULT;
           instructionformat = new Setting<>(InstructionFormat.LUA51);
@@ -221,15 +246,20 @@ public class Version {
           useifbreakrewrite = new Setting<>(true);
           usegoto = new Setting<>(true);
           rkoffset = new Setting<>(256);
+          allownegativeint = new Setting<Boolean>(luaj);
+          constantslengthmode = new Setting<>(luaj ? ListLengthMode.ALLOW_NEGATIVE : ListLengthMode.STRICT);
+          functionslengthmode = new Setting<>(luaj ? ListLengthMode.ALLOW_NEGATIVE : ListLengthMode.STRICT);
+          locallengthmode = new Setting<>(luaj ? ListLengthMode.ALLOW_NEGATIVE : ListLengthMode.STRICT);
+          upvaluelengthmode = new Setting<>(luaj ? ListLengthMode.ALLOW_NEGATIVE : ListLengthMode.STRICT);
           break;
         case 3:
           varargtype = new Setting<>(VarArgType.ELLIPSIS);
           useupvaluecountinheader = new Setting<>(true);
           headertype = HeaderType.LUA53;
           stringtype = StringType.LUA53;
-          constanttype = ConstantType.LUA53;
           upvaluetype = UpvalueType.LUA50;
           functiontype = FunctionType.LUA53;
+          typemap = TypeMapType.LUA53;
           opcodemap = OpcodeMapType.LUA53;
           defaultop = Op.DEFAULT;
           instructionformat = new Setting<>(InstructionFormat.LUA51);
@@ -247,16 +277,21 @@ public class Version {
           useifbreakrewrite = new Setting<>(true);
           usegoto = new Setting<>(true);
           rkoffset = new Setting<>(256);
+          allownegativeint = new Setting<Boolean>(true);
+          constantslengthmode = new Setting<>(ListLengthMode.STRICT);
+          functionslengthmode = new Setting<>(ListLengthMode.STRICT);
+          locallengthmode = new Setting<>(ListLengthMode.STRICT);
+          upvaluelengthmode = new Setting<>(ListLengthMode.STRICT);
           break;
         case 4:
           varargtype = new Setting<>(VarArgType.ELLIPSIS);
           useupvaluecountinheader = new Setting<>(true);
           headertype = HeaderType.LUA54;
           stringtype = StringType.LUA54;
-          constanttype = ConstantType.LUA54;
           upvaluetype = UpvalueType.LUA54;
           functiontype = FunctionType.LUA54;
-          opcodemap = OpcodeMapType.LUA54BETA;
+          typemap = TypeMapType.LUA54;
+          opcodemap = OpcodeMapType.LUA54;
           defaultop = Op.DEFAULT54;
           instructionformat = new Setting<>(InstructionFormat.LUA54);
           outerblockscopeadjustment = new Setting<>(0);
@@ -273,15 +308,20 @@ public class Version {
           useifbreakrewrite = new Setting<>(true);
           usegoto = new Setting<>(true);
           rkoffset = new Setting<>(null);
+          allownegativeint = new Setting<Boolean>(true);
+          constantslengthmode = new Setting<>(ListLengthMode.STRICT);
+          functionslengthmode = new Setting<>(ListLengthMode.STRICT);
+          locallengthmode = new Setting<>(ListLengthMode.STRICT);
+          upvaluelengthmode = new Setting<>(ListLengthMode.IGNORE);
           break;
-        case -1: // Playdate's beta version
+        case -1:
           varargtype = new Setting<>(VarArgType.ELLIPSIS);
           useupvaluecountinheader = new Setting<>(true);
           headertype = HeaderType.LUA54;
           stringtype = StringType.LUA54;
-          constanttype = ConstantType.LUA54BETA;
           upvaluetype = UpvalueType.LUA54;
           functiontype = FunctionType.LUA54;
+          typemap = TypeMapType.LUA54BETA;
           opcodemap = OpcodeMapType.LUA54BETA;
           defaultop = Op.DEFAULT54;
           instructionformat = new Setting<>(InstructionFormat.LUA54);
@@ -299,6 +339,11 @@ public class Version {
           useifbreakrewrite = new Setting<>(true);
           usegoto = new Setting<>(true);
           rkoffset = new Setting<>(null);
+          allownegativeint = new Setting<Boolean>(true);
+          constantslengthmode = new Setting<>(ListLengthMode.STRICT);
+          functionslengthmode = new Setting<>(ListLengthMode.STRICT);
+          locallengthmode = new Setting<>(ListLengthMode.STRICT);
+          upvaluelengthmode = new Setting<>(ListLengthMode.IGNORE);
           break;
         default: throw new IllegalStateException();
       }
@@ -334,9 +379,10 @@ public class Version {
     
     this.lheadertype = LHeaderType.get(headertype);
     this.lstringtype = LStringType.get(stringtype);
-    this.lconstanttype = LConstantType.get(constanttype);
+    this.lconstanttype = new LConstantType();
     this.lupvaluetype = LUpvalueType.get(upvaluetype);
     this.lfunctiontype = LFunctionType.get(functiontype);
+    this.typemap = new TypeMap(typemap);
     this.opcodemap = new OpcodeMap(opcodemap);
   }
   
@@ -383,6 +429,10 @@ public class Version {
   
   public LFunctionType getLFunctionType() {
     return lfunctiontype;
+  }
+  
+  public TypeMap getTypeMap() {
+    return typemap;
   }
   
   public OpcodeMap getOpcodeMap() {

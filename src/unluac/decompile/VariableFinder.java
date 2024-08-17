@@ -14,26 +14,24 @@ public class VariableFinder {
     public RegisterState() {
       last_written = 1;
       last_read = -1;
-      last_displayOverride = -1;
       read_count = 0;
+      func_ref = -1;
+      func = false;
       temporary = false;
       local = false;
       read = false;
       written = false;
-      displayOverride = false;
-      isFunc = false;
     }
     
     int last_written;
     int last_read;
-    int last_displayOverride;
     int read_count;
+    int func_ref;
+    boolean func;
     boolean temporary;
     boolean local;
     boolean read;
     boolean written;
-    boolean displayOverride;
-    boolean isFunc;
   }
   
   static class RegisterStates {
@@ -55,18 +53,11 @@ public class VariableFinder {
       return states[line - 1].get(register);
     }
     
-    public void makeSureDisplays(int register, int line) {
-      get(register, line).displayOverride = true;
-      get(register, line).last_displayOverride = line;
-    }
-    
     public void setWritten(int register, int line) {
-      get(register, line).isFunc = false;
       get(register, line).written = true;
-      get(register, line + 1).last_written = line;
-      
-      get(register, line).displayOverride = false;
-      get(register, line).last_displayOverride = -1;
+      get(register, line).last_written = line;
+      get(register, line).read_count = 0;
+      get(register, line).func_ref = -1;
     }
     
     public void setRead(int register, int line) {
@@ -97,32 +88,15 @@ public class VariableFinder {
     }
     
     public void setTemporaryWrite(int register_min, int register_max, int line) {
-      for(int r = register_max + 1; r < registers; r++) {
-        get(r, get(r, line).last_written).temporary = true;
-      }
       for(int r = register_min; r <= register_max; r++) {
         get(r, line).temporary = true;
       }
     }
     
     public void nextLine(int line) {
-      if(line + 1 < lines) {
+      if(line > 1) {
         for(int r = 0; r < registers; r++) {
-          if(get(r, line).last_written > get(r, line + 1).last_written) {
-            get(r, line + 1).last_written = get(r, line).last_written;
-          }
-          
-          if(get(r, line).last_displayOverride > get(r, line + 1).last_displayOverride) {
-            get(r, line + 1).last_displayOverride = get(r, line).last_displayOverride;
-          }
-          
-          if(get(r, line).displayOverride) {
-            get(r, line + 1).displayOverride = true;
-          }
-          
-          if(get(r, line).isFunc) {
-            get(r, line + 1).isFunc = true;
-          }
+          get(r, line).last_written = get(r, line - 1).last_written;
         }
       }
     }
@@ -172,29 +146,31 @@ public class VariableFinder {
       switch(code.op(line)) {
         case MOVE:
           states.setWritten(A, line);
-          states.setRead(B, line);/*
-          if(A < B) {
-            states.setLocalWrite(A, A, line);
-          } else if(B < A) {
-            states.setLocalRead(B, line);
-          }*/
+          states.setRead(B, line);
           break;
-        case NEWTABLE54: {
-          states.setLocalWrite(A, A, line);
+        //case NEWTABLE54:
+        case LOADI:
+        case LOADF:
+        case LOADK:
+        case LOADKX:
+        case LOADBOOL:
+        case LOADFALSE:
+        case LOADTRUE:
+          states.setWritten(A, line);
           break;
-        }
         case LOADNIL52: {
-          states.setTemporaryWrite(A, A + B, line);
+          for (int register = A; register <= A + B; register++) {
+            states.setWritten(register, line);
+          }
           break;
         }
         case GETI:
           states.setWritten(A, line);
-          states.setRead(B, line);
           break;
         case GETUPVAL:
         case GETTABUP54:
           states.setWritten(A, line);
-          states.setTemporaryWrite(A, A, line);
+          if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
           break;
         case GETTABLE54:
           states.setWritten(A, line);
@@ -226,16 +202,12 @@ public class VariableFinder {
           break;
         case GETFIELD:
           states.setWritten(A, line);
-          states.setRead(B, line);
-          states.setTemporaryRead(B, line);
           if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
           break;
         case SETTABUP54:
           if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
           break;
         case SETFIELD:
-          states.setWritten(A, line);
-          //states.setTemporaryRead(A, line);
           if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
           break;
         case SETTABLE54:
@@ -264,19 +236,20 @@ public class VariableFinder {
           states.setRead(B, line);
           if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
           break;
+        case LEN:
         case UNM:
         case BNOT:
         case NOT:
-        case LEN:
           states.setWritten(A, line);
-          states.get(code.B(line), line).read = true;
+          states.setRead(B, line);
           break;
-        case CONCAT54:
+        case CONCAT54: {
           for(int register = A; register < A + B; register++) {
             states.setRead(register, line);
-            states.setTemporaryRead(register, line);
           }
+          states.setWritten(A, line);
           break;
+        }
         case SETLIST54: {
           for(int register = A + 1; register <= B; register++) {
             states.setRead(register, line);
@@ -300,35 +273,32 @@ public class VariableFinder {
           break;
         case TESTSET54:
           states.setWritten(A, line);
-          states.setLocalWrite(A, A, line);
           states.setRead(B, line);
           break;
         case CLOSURE: {
           LFunction f = d.function.functions[code.Bx(line)];
           for(LUpvalue upvalue : f.upvalues) {
             if(upvalue.instack) {
-              states.setLocalRead(upvalue.idx, line);
+              states.get(upvalue.idx, line).func_ref = code.Bx(line);
             }
           }
           states.setWritten(A, line);
+          states.get(A, line).func = true;
           break;
         }
         case CALL:
         case TAILCALL54: {
-          for(int i = states.get(A, line).last_written; i <= line; i++)
-            states.get(A, i).isFunc = true;
-          
+          states.setTemporaryRead(A, line);
+          for(int register = A; register <= A + B - 1; register++) {
+            states.setRead(register, line);
+          }
           if(code.op(line) != Op.TAILCALL54) {
             if(C >= 2) {
               for(int register = A; register <= A + C - 2; register++) {
                 states.setWritten(register, line);
               }
             }
-          }
-          for(int register = A; register <= A + B - 1; register++) {
-            states.setRead(register, line);
-            states.setTemporaryRead(register, line);
-          }
+          }/*
           if(C >= 2) {
             int nline = line + 1;
             int register = A + C - 2;
@@ -343,20 +313,20 @@ public class VariableFinder {
               nline++;
             }
           }
-          
+          */
           break;
         }
         case RETURN54: {
           if(B == 0) B = registers - code.A(line) + 1;
           for(int register = A; register <= A + B - 2; register++) {
-            states.get(register, line).read = true;
+            states.setRead(register, line);
           }
           break;
         }
         default:
           break;
       }
-    }
+    }/*
     for(int line = 1; line <= code.length(); line++) {
       for(int register = 0; register < registers; register++) {
         RegisterState s = states.get(register, line);
@@ -380,12 +350,6 @@ public class VariableFinder {
             if(!any_written) {
               break;
             }
-            for(int pregister = 0; pregister < registers; pregister++) {
-              RegisterState a = states.get(pregister, pline); 
-              if(a.read && !a.local) {
-                ancestors.add(pregister);
-              }
-            }
           }
           for(int ancestor : ancestors) {
             if(pline >= 1) {
@@ -394,11 +358,11 @@ public class VariableFinder {
           }
         }
       }
-    }/*
-    for(int register = 0; register < registers; register++) {
+    }*/
+    /*for(int register = 0; register < registers; register++) {
       for(int line = 1; line <= code.length(); line++) {
         RegisterState s = states.get(register, line);
-        if(s.written || line == 1) {
+        if(s.written) {
           System.out.println("WRITE r:" + register + " l:" + line + " .. " + s.last_read);
           if(s.local) System.out.println("  LOCAL");
           if(s.temporary) System.out.println("  TEMPORARY");
@@ -413,14 +377,11 @@ public class VariableFinder {
       boolean local = false;
       boolean temporary = false;
       int masterOverride = -1;
-      
-      int read = 0;
-      int written = 0;
+      int lc = 0;
       
       List<Integer> starts = new ArrayList<Integer>();
       List<Integer> ends = new ArrayList<Integer>();
       List<Boolean> locals = new ArrayList<Boolean>();
-      List<Boolean> temps = new ArrayList<Boolean>();
       
       if(register < args) {
         local = true;
@@ -441,84 +402,48 @@ public class VariableFinder {
         }
       }
       
-      if(!local && !temporary) {
-        boolean prevOverride = false;
+      int read = 0;
+      int written = 0;
+      
+      for(int line = 1; line <= code.length(); line++) {
+        RegisterState state = states.get(register, line);
         
-        for(int line = 1; line <= code.length(); line++) {
-          RegisterState state = states.get(register, line);
-          
-          if(state.displayOverride && !prevOverride) {
-            temporary = false;
-            local = true;
-            locals.add(local);
-            temps.add(temporary);
-            starts.add(written == 0 ? 1 : line);
+        if(states.get(register, state.last_written).temporary) continue;
+        
+        if(state.read) {
+          written = 0; read++;
+        }
+        
+        if(state.written) {
+          if(state.local || (written == 0 && read != 0 && state.read_count > 1)) {
+            locals.add(true);
+            
+            starts.add(line);
             ends.add(state.last_read);
-            
-            prevOverride = true;
-          }
-          if(state.displayOverride) {
-            continue;
           }
           
-          prevOverride = false;
-          
-          if(state.temporary || state.isFunc) {
-            temporary = true;
-          }
-          
-          if(state.read) {
-            written = 0; read++;
-          }
-          
-          if(state.written) {
-            if(written == 0) {
-              if(read != 0 && state.read_count >= 2 && d.function.parent != null && !state.isFunc) {
-                temporary = false;
-                local = true;
-              }
-              else if(read != 0 && state.read_count >= 2 && d.function.parent == null && !state.isFunc) {
-                temporary = false;
-                local = true;
-              }
-              
-              locals.add(local);
-              temps.add(temporary);
-              
-              if(state.isFunc) starts.add(line);
-              else starts.add(1);
-              ends.add(state.last_read);
-            }
-            
-            read = 0; written++;
-          }
+          read = 0; written++;
         }
       }
-      
-      if(!local) {
-        for(int i = 0; i < d.function.functions.length; i++) {
-          LFunction f = d.function.functions[i];
+      for(int line = 1; line <= code.length(); line++) {
+        RegisterState state = states.get(register, line);
+        
+        if(state.func_ref > -1) {
+          LFunction f = d.function.functions[state.func_ref];
           for(LUpvalue upvalue : f.upvalues) {
-            if(upvalue.idx == register) {
-              local = true;
-              temporary = false;
-              locals.add(local);
-              temps.add(temporary);
-              starts.add(1);
-              ends.add(code.length());
+            if(upvalue.instack && upvalue.idx == register) {
+              if(!starts.contains(states.get(upvalue.idx, line).last_written)) {
+                locals.add(true);
+                starts.add(states.get(upvalue.idx, line).last_written);
+                if(states.get(upvalue.idx, states.get(upvalue.idx, line).last_written).last_read == -1) {
+                  ends.add(code.length());
+                }
+                else {
+                  ends.add(states.get(upvalue.idx, states.get(upvalue.idx, line).last_written).last_read);
+                }
+              }
             }
           }
-        }
-      }
-      
-      if(!local && !temporary) {
-        if(d.function.parent != null && read >= 2 || read == 0 && written > 0) {
-          local = true;
-          
-          locals.add(local);
-          temps.add(false);
-          starts.add(1);
-          ends.add(code.length());
         }
       }
       
@@ -526,17 +451,15 @@ public class VariableFinder {
       int delimCounter = 0;
       
       for(int i = 0; i < locals.size(); i++) {
-        if(locals.get(i) && !temps.get(i)) {
-          if(is_arg) {
-            name = "arg";
-          } else {
-            name = id + register + "_" + lc++;
-          }
-          
-          Declaration decl2 = new Declaration(name, starts.get(i), code.length() + d.getVersion().outerblockscopeadjustment.get());
-          decl2.register = register;
-          declList.add(decl2);
+        if(is_arg) {
+          name = "arg";
+        } else {
+          name = id + register + "_" + lc++;
         }
+        
+        Declaration decl2 = new Declaration(name, starts.get(i), ends.get(i) + d.getVersion().outerblockscopeadjustment.get());
+        decl2.register = register;
+        declList.add(decl2);
       }
       
       if(locals.size() == 0) {

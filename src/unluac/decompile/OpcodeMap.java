@@ -198,6 +198,7 @@ public class OpcodeMap {
         map[46] = Op.EXTRAARG;
         break;
       case LUA54BETA:
+      case LUA54:
         map = new Op[84];
         map[0] = Op.MOVE;
         map[1] = Op.LOADI;
@@ -284,7 +285,7 @@ public class OpcodeMap {
         map[82] = Op.LFALSESKIP;
         map[83] = Op.LOADTRUE;
         break;
-      case LUA54:
+      /*case LUA54:
         map = new Op[83];
         map[0] = Op.MOVE;
         map[1] = Op.LOADI;
@@ -369,7 +370,7 @@ public class OpcodeMap {
         map[80] = Op.VARARG54;
         map[81] = Op.VARARGPREP;
         map[82] = Op.EXTRAARG;
-        break;
+        break;*/
       default:
         throw new IllegalStateException();
     }

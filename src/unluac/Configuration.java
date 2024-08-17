@@ -12,6 +12,8 @@ public class Configuration {
     DECOMPILE,
     DISASSEMBLE,
     ASSEMBLE,
+    HELP,
+    VERSION,
   }
   
   public enum VariableMode {
@@ -24,14 +26,17 @@ public class Configuration {
   public Mode mode;
   public VariableMode variable;
   public boolean strict_scope;
+  public boolean luaj;
+  public String typemap;
   public String opmap;
   public String output;
   
   public Configuration() {
     rawstring = false;
     mode = Mode.DECOMPILE;
-    variable = VariableMode.FINDER;
+    variable = VariableMode.DEFAULT;
     strict_scope = false;
+    luaj = false;
     opmap = null;
     output = null;
   }

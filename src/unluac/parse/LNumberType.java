@@ -10,8 +10,8 @@ public class LNumberType extends BObjectType<LNumber> {
 
   public static enum NumberMode {
     MODE_NUMBER, // Used for Lua 5.0 - 5.2 where numbers can represent integers or floats
-    MODE_FLOAT, // Used for floats in Lua 5.3
-    MODE_INTEGER, // Used for integers in Lua 5.3
+    MODE_FLOAT, // Used for floats in Lua 5.3+
+    MODE_INTEGER, // Used for integers in Lua 5.3+
   }
   
   public final int size;
@@ -48,23 +48,15 @@ public class LNumberType extends BObjectType<LNumber> {
   
   @Override
   public LNumber parse(ByteBuffer buffer, BHeader header) {
-    return parse(buffer, header, false);
-  }
-  
-  public LNumber parse(ByteBuffer buffer, BHeader header, boolean isLong) {
     LNumber value = null;
     if(integral) {
-      if(isLong) {
-        value = new LLongNumber(buffer.getLong());
-      } else {
-        switch(size) {
-          case 4:
-            value = new LIntNumber(buffer.getInt());
-            break;
-          case 8:
-            value = new LLongNumber(buffer.getLong());
-            break;
-        }
+      switch(size) {
+        case 4:
+          value = new LIntNumber(buffer.getInt());
+          break;
+        case 8:
+          value = new LLongNumber(buffer.getLong());
+          break;
       }
     } else {
       switch(size) {
@@ -96,6 +88,28 @@ public class LNumberType extends BObjectType<LNumber> {
     } else {
       for(int i = size - 1; i >= 0; i--) {
         out.write((byte)((bits >> (i * 8)) & 0xFF));
+      }
+    }
+  }
+  
+  public LNumber createNaN(long bits) {
+    if(integral) {
+      throw new IllegalStateException();
+    } else {
+      switch(size) {
+        case 4: {
+          int fbits = Float.floatToRawIntBits(Float.NaN);
+          if(bits < 0) {
+            bits ^= 0x8000000000000000L;
+            fbits ^= 0x80000000;
+          }
+          fbits |= (bits >> LFloatNumber.NAN_SHIFT_OFFSET);
+          return new LFloatNumber(Float.intBitsToFloat(fbits), mode);
+        }
+        case 8:
+          return new LDoubleNumber(Double.longBitsToDouble(Double.doubleToRawLongBits(Double.NaN) ^ bits), mode);
+        default:
+          throw new IllegalStateException();
       }
     }
   }

@@ -14,6 +14,8 @@ import unluac.assemble.Tokenizer;
 import unluac.decompile.CodeExtract;
 import unluac.decompile.Op;
 import unluac.decompile.OpcodeMap;
+import unluac.decompile.Type;
+import unluac.decompile.TypeMap;
 
 
 public class BHeader {
@@ -41,15 +43,16 @@ public class BHeader {
   public final LUpvalueType upvalue;
   public final LFunctionType function;
   public final CodeExtract extractor;
+  public final TypeMap typemap;
   public final OpcodeMap opmap;
   
   public final LFunction main;
   
-  public BHeader(Version version, LHeader lheader) {
-    this(version, lheader, null);
+  public BHeader(Version version, LHeader lheader, TypeMap typemap) {
+    this(version, lheader, typemap, null);
   }
   
-  public BHeader(Version version, LHeader lheader, LFunction main) {
+  public BHeader(Version version, LHeader lheader, TypeMap typemap, LFunction main) {
     this.config = null;
     this.version = version;
     this.lheader = lheader;
@@ -67,6 +70,7 @@ public class BHeader {
     upvalue = lheader.upvalue;
     function = lheader.function;
     extractor = lheader.extractor;
+    this.typemap = typemap;
     opmap = version.getOpcodeMap();
     this.main = main;
   }
@@ -92,7 +96,7 @@ public class BHeader {
       minor = -1;
     }
     
-    version = Version.getVersion(major, minor);
+    version = Version.getVersion(config, major, minor);
     if(version == null) {
       throw new IllegalStateException("The input chunk's Lua version is " + major + "." + minor + "; unluac can only handle Lua 5.0 - Lua 5.4.");
     }
@@ -113,8 +117,36 @@ public class BHeader {
     function = lheader.function;
     extractor = lheader.extractor;
     
-    if(config.opmap != null) {
-      try {
+    try {
+      if(config.typemap != null) {
+        Tokenizer t = new Tokenizer(new FileInputStream(new File(config.typemap)));
+        String tok;
+        Map<Integer, Type> usertypemap = new HashMap<Integer, Type>();
+        while((tok = t.next()) != null) {
+          if(tok.equals(".type")) {
+            tok = t.next();
+            if(tok == null) throw new RuntimeException("Unexpected end of typemap file.");
+            int opcode;
+            try {
+              opcode = Integer.parseInt(tok);
+            } catch(NumberFormatException e) {
+              throw new RuntimeException("Excepted number in typemap file, got \"" + tok + "\".");
+            }
+            tok = t.next();
+            if(tok == null) throw new RuntimeException("Unexpected end of typemap file.");
+            Type type = Type.get(tok);
+            if(type == null) throw new RuntimeException("Unknown type name \"" + tok + "\" in typemap file.");
+            usertypemap.put(opcode, type);
+          } else {
+            throw new RuntimeException("Unexpected token \"" + tok + "\" + in typemap file.");
+          }
+        }
+        typemap = new TypeMap(usertypemap);
+      } else {
+        typemap = version.getTypeMap();
+      }
+    
+      if(config.opmap != null) {
         Tokenizer t = new Tokenizer(new FileInputStream(new File(config.opmap)));
         String tok;
         Map<Integer, Op> useropmap = new HashMap<Integer, Op>();
@@ -138,11 +170,11 @@ public class BHeader {
           }
         }
         opmap = new OpcodeMap(useropmap);
-      } catch(IOException e) {
-        throw new IllegalStateException(e.getMessage());
+      } else {
+        opmap = version.getOpcodeMap();
       }
-    } else {
-      opmap = version.getOpcodeMap();
+    } catch(IOException e) {
+      throw new IllegalStateException(e.getMessage());
     }
     
     int upvalues = -1;

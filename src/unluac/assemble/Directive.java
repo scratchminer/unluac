@@ -28,7 +28,8 @@ public enum Directive {
   NUMBER_FORMAT(".number_format", DirectiveType.HEADER, 2),
   INTEGER_FORMAT(".integer_format", DirectiveType.HEADER, 1),
   FLOAT_FORMAT(".float_format", DirectiveType.HEADER, 1),
-  OP(".op", DirectiveType.HEADER, 2),
+  TYPE(".type", DirectiveType.HEADER, 2, true),
+  OP(".op", DirectiveType.HEADER, 2, true),
   FUNCTION(".function", DirectiveType.NEWFUNCTION, 1),
   SOURCE(".source", DirectiveType.FUNCTION, 1),
   LINEDEFINED(".linedefined", DirectiveType.FUNCTION, 1),
@@ -44,12 +45,18 @@ public enum Directive {
   UPVALUE(".upvalue", DirectiveType.FUNCTION, 2),
   ;
   Directive(String token, DirectiveType type, int argcount) {
+    this(token, type, argcount, false);
+  }
+  
+  Directive(String token, DirectiveType type, int argcount, boolean repeatable) {
     this.token = token;
     this.type = type;
+    this.repeatable = repeatable;
   }
   
   public final String token;
   public final DirectiveType type;
+  public final boolean repeatable;
   
   static Map<String, Directive> lookup;
   
@@ -79,10 +86,10 @@ public enum Directive {
     }
   }
   
-  public void disassemble(Output out, BHeader chunk, LFunction function) {
+  public void disassemble(Output out, BHeader chunk, LFunction function, int print_flags) {
     out.print(this.token + "\t");
     switch(this) {
-    case SOURCE: out.println(function.name.toPrintString()); break;
+    case SOURCE: out.println(function.name.toPrintString(print_flags)); break;
     case LINEDEFINED: out.println(String.valueOf(function.linedefined)); break;
     case LASTLINEDEFINED: out.println(String.valueOf(function.lastlinedefined)); break;
     case NUMPARAMS: out.println(String.valueOf(function.numParams)); break;

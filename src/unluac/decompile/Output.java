@@ -5,6 +5,8 @@ public class Output {
   private OutputProvider out;
   private int indentationLevel = 0;
   private int position = 0;
+  private boolean start = true;
+  private boolean paragraph = false;
   
   public Output() {
     this(new OutputProvider() {
@@ -24,6 +26,11 @@ public class Output {
         System.out.println();
       }
       
+      @Override
+      public void finish() {
+        System.out.flush();
+      }
+      
     });
   }
   
@@ -32,11 +39,17 @@ public class Output {
   }
   
   public void indent() {
+    start = true;
     indentationLevel += 2;
   }
   
   public void dedent() {
+    paragraph = false;
     indentationLevel -= 2;
+  }
+  
+  public void paragraph() {
+    paragraph = true;
   }
   
   public int getIndentationLevel() {
@@ -53,11 +66,18 @@ public class Output {
   
   private void start() {
     if(position == 0) {
-      for(int i = indentationLevel; i != 0; i -= 2) {
-        out.print("\t");
+      for(int i = indentationLevel; i != 0; i--) {
+        out.print(" ");
         position++;
       }
+      if(paragraph && !start) {
+        paragraph = false;
+        out.println();
+        position = 0;
+        start();
+      }
     }
+    start = false;
   }
   
   public void print(String s) {
@@ -83,6 +103,10 @@ public class Output {
   public void println(String s) {
     print(s);
     println();
+  }
+  
+  public void finish() {
+    out.finish();
   }
   
 }

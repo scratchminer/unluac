@@ -11,11 +11,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import unluac.Configuration;
 import unluac.Version;
 import unluac.decompile.CodeExtract;
 import unluac.decompile.Op;
 import unluac.decompile.OpcodeMap;
 import unluac.decompile.OperandFormat;
+import unluac.decompile.Type;
+import unluac.decompile.TypeMap;
 import unluac.parse.BHeader;
 import unluac.parse.BInteger;
 import unluac.parse.BIntegerType;
@@ -56,6 +59,7 @@ class AssemblerConstant {
     FLOAT,
     STRING,
     LONGSTRING,
+    NAN,
   }
   
   public String name;
@@ -65,6 +69,7 @@ class AssemblerConstant {
   public double numberValue;
   public String stringValue;
   public BigInteger integerValue;
+  public long nanValue;
 }
 
 class AssemblerAbsLineInfo {
@@ -246,10 +251,22 @@ class AssemblerFunction {
       } else if(value.equals("null")) {
         constant.type = AssemblerConstant.Type.STRING;
         constant.stringValue = null;
+      } else if(value.equals("NaN")) {
+        constant.type = AssemblerConstant.Type.NAN;
+        constant.nanValue = 0;
       } else {
         try {
-          // TODO: better check
-          if(chunk.number != null) {
+          if(value.startsWith("NaN+") || value.startsWith("NaN-")) {
+            long bits = Long.parseUnsignedLong(value.substring(4), 16);
+            if(bits < 0 || (bits & Double.doubleToRawLongBits(Double.NaN)) != 0) {
+              throw new AssemblerException("Unrecognized NaN value: " + value);
+            }
+            if(value.startsWith("NaN-")) {
+              bits ^= 0x8000000000000000L;
+            }
+            constant.type = AssemblerConstant.Type.NAN;
+            constant.nanValue = bits;
+          } else if(chunk.number != null) { // TODO: better check
             constant.numberValue = Double.parseDouble(value);
             constant.type = AssemblerConstant.Type.NUMBER;
           } else {
@@ -262,7 +279,7 @@ class AssemblerFunction {
             }
           }
         } catch(NumberFormatException e) {
-          throw new IllegalStateException("Unrecognized constant value: " + value);
+          throw new AssemblerException("Unrecognized constant value: " + value);
         }
       }
       constants.add(constant);
@@ -465,6 +482,7 @@ class AssemblerChunk {
   public int b_size;
   public int c_size;
   
+  public Map<Integer, Type> usertypemap;
   public Map<Integer, Op> useropmap;
   
   public boolean number_integral;
@@ -491,7 +509,7 @@ class AssemblerChunk {
   }
   
   public void processHeaderDirective(Assembler a, Directive d) throws AssemblerException, IOException {
-    if(d != Directive.OP && processed_directives.contains(d)) {
+    if(!d.repeatable && processed_directives.contains(d)) {
       throw new AssemblerException("Duplicate " + d.name() + " directive");
     }
     processed_directives.add(d);
@@ -515,11 +533,11 @@ class AssemblerChunk {
     }
     case INT_SIZE:
       int_size = a.getInteger();
-      integer = BIntegerType.create50Type(int_size);
+      integer = BIntegerType.create50Type(true, int_size, version.allownegativeint.get());
       break;
     case SIZE_T_SIZE:
       size_t_size = a.getInteger();
-      sizeT = BIntegerType.create50Type(size_t_size);
+      sizeT = BIntegerType.create50Type(false, size_t_size, false);
       break;
     case INSTRUCTION_SIZE:
       instruction_size = a.getInteger();
@@ -553,6 +571,19 @@ class AssemblerChunk {
     case FLOAT_FORMAT:
       lfloat = new LNumberType(a.getInteger(), false, NumberMode.MODE_FLOAT);
       break;
+    case TYPE: {
+      if(usertypemap == null) {
+        usertypemap = new HashMap<Integer, Type>();
+      }
+      int typecode = a.getInteger();
+      String name = a.getName();
+      Type type = Type.get(name);
+      if(type == null) {
+        throw new AssemblerException("Unknown type name \"" + name + "\"");
+      }
+      usertypemap.put(typecode, type);
+      break;
+    }
     case OP: {
       if(useropmap == null) {
         useropmap = new HashMap<Integer, Op>();
@@ -625,10 +656,17 @@ class AssemblerChunk {
       sizeT = integer;
     }
     
+    TypeMap typemap;
+    if(usertypemap != null) {
+      typemap = new TypeMap(usertypemap);
+    } else {
+      typemap = version.getTypeMap();
+    }
+    
     LHeader lheader = new LHeader(format, endianness, integer, sizeT, bool, number, linteger, lfloat, string, constant, abslineinfo, local, upvalue, function, extract);
-    BHeader header = new BHeader(version, lheader);
+    BHeader header = new BHeader(version, lheader, typemap);
     LFunction main = convert_function(header, this.main);
-    header = new BHeader(version, lheader, main);
+    header = new BHeader(version, lheader, typemap, main);
     
     header.write(out);
   }
@@ -681,6 +719,13 @@ class AssemblerChunk {
       case LONGSTRING:
         object = convert_long_string(header, constant.stringValue);
         break;
+      case NAN:
+        if(header.number != null) {
+          object = header.number.createNaN(constant.nanValue);
+        } else {
+          object = header.lfloat.createNaN(constant.nanValue);
+        }
+        break;
       default:
         throw new IllegalStateException();
       }
@@ -723,23 +768,25 @@ class AssemblerChunk {
     if(string == null) {
       return LString.NULL;
     } else {
-      return new LString(string);
+      return new LString(string, '\0');
     }
   }
   
   private LString convert_long_string(BHeader header, String string) {
-    return new LString(string, true);
+    return new LString(string, '\0', true);
   }
 
 }
 
 public class Assembler {
 
+  private Configuration config;
   private Tokenizer t;
   private OutputStream out;
   private Version version;
   
-  public Assembler(InputStream in, OutputStream out) {
+  public Assembler(Configuration config, InputStream in, OutputStream out) {
+    this.config = config;
     t = new Tokenizer(in);
     this.out = out;
   }
@@ -767,7 +814,7 @@ public class Assembler {
       throw new AssemblerException("Unsupported version " + tok);
     }
     
-    version = Version.getVersion(major, minor);
+    version = Version.getVersion(config, major, minor);
     
     if(version == null) {
       throw new AssemblerException("Unsupported version " + tok);

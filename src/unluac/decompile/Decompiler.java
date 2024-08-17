@@ -896,8 +896,7 @@ public class Decompiler {
       }
       
       Block block = blockStack.peek();
-      
-      r.startLine(line);
+      if(line <= code.length()) r.startLine(line);
       
       // Handle other sources of operations (after pushing any new container block)
       if(operations == null) {

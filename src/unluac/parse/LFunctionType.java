@@ -8,6 +8,8 @@ import java.util.List;
 
 import unluac.Version;
 import unluac.assemble.Directive;
+import unluac.decompile.CodeExtract;
+import unluac.decompile.Op;
 
 
 abstract public class LFunctionType extends BObjectType<LFunction> {
@@ -60,14 +62,13 @@ abstract public class LFunctionType extends BObjectType<LFunction> {
     if(s.abslineinfo != null) {
       abslineinfo = s.abslineinfo.asArray(new LAbsLineInfo[s.abslineinfo.length.asInt()]);
     }
-    LFunction lfunc = new LFunction(header, s.name, s.lineBegin, s.lineEnd, s.code, lines, abslineinfo, s.locals.asArray(new LLocal[s.locals.length.asInt()]), s.constants.asArray(new LObject[s.constants.length.asInt()]), s.upvalues, s.functions.asArray(new LFunction[s.functions.length.asInt()]), s.maximumStackSize, s.lenUpvalues, s.lenParameter, s.vararg);
+    LFunction lfunc = new LFunction(header, s.name, s.lineBegin, s.lineEnd, s.code, lines, abslineinfo, s.locals.asArray(new LLocal[Math.max(0, s.locals.length.asInt())]), s.constants.asArray(new LObject[Math.max(0, s.constants.length.asInt())]), s.upvalues, s.functions.asArray(new LFunction[Math.max(0, s.functions.length.asInt())]), s.maximumStackSize, s.lenUpvalues, s.lenParameter, s.vararg);
     for(LFunction child : lfunc.functions) {
       child.parent = lfunc;
     }
     if(s.lines.length.asInt() == 0 && s.locals.length.asInt() == 0) {
       lfunc.stripped = true;
     }
-    
     return lfunc;
   }
   
@@ -84,7 +85,15 @@ abstract public class LFunctionType extends BObjectType<LFunction> {
     for(int i = 0; i < s.length; i++) {
       s.code[i] = buffer.getInt();
       if(header.debug) {
-        System.out.println("-- parsed codepoint " + Integer.toHexString(s.code[i]));
+        int codepoint = s.code[i];
+        CodeExtract ex = header.extractor;
+        Op op = header.opmap.get(ex.op.extract(codepoint));
+        System.out.println("-- parsed codepoint " + Integer.toHexString(codepoint));
+        if(op != null) {
+          System.out.println("-- " + op.codePointToString(0, null, codepoint, ex, null, false));
+        } else {
+          System.out.println("-- " + Op.defaultToString(0, null, codepoint, header.version, ex, false));
+        }
       }
     }
   }
@@ -148,12 +157,16 @@ abstract public class LFunctionType extends BObjectType<LFunction> {
     if(header.debug) {
       System.out.println("-- beginning to parse locals list");
     }
-    s.locals = header.local.parseList(buffer, header);
+    s.locals = header.local.parseList(buffer, header, header.version.locallengthmode.get());
+    parse_upvalue_names(buffer, header, s);
+  }
+  
+  protected void parse_upvalue_names(ByteBuffer buffer, BHeader header, LFunctionParseState s) {
     if(header.debug) {
-      System.out.println("-- beginning to parse upvalues list");
+      System.out.println("-- beginning to parse upvalue names list");
     }
-    BList<LString> upvalueNames = header.string.parseList(buffer, header);
-    for(int i = 0; i < upvalueNames.length.asInt(); i++) {
+    BList<LString> upvalueNames = header.string.parseList(buffer, header, header.version.upvaluelengthmode.get(), new BInteger(s.lenUpvalues));
+    for(int i = 0; i < Math.min(s.upvalues.length, upvalueNames.length.asInt()); i++) {
       s.upvalues[i].bname = upvalueNames.get(i);
       s.upvalues[i].name = s.upvalues[i].bname.deref();
     }
@@ -361,14 +374,10 @@ class LFunctionType54 extends LFunctionType {
   @Override
   protected void parse_debug(ByteBuffer buffer, BHeader header, LFunctionParseState s) {
     // TODO: process line info correctly
-    s.lines = (new BIntegerType50(1)).parseList(buffer, header);
+    s.lines = (new BIntegerType50(false, 1, false)).parseList(buffer, header);
     s.abslineinfo = header.abslineinfo.parseList(buffer, header);
     s.locals = header.local.parseList(buffer, header);
-    BList<LString> upvalueNames = header.string.parseList(buffer, header);
-    for(int i = 0; i < upvalueNames.length.asInt(); i++) {
-      s.upvalues[i].bname = upvalueNames.get(i);
-      s.upvalues[i].name = s.upvalues[i].bname.deref();
-    }
+    parse_upvalue_names(buffer, header, s);
   }
   
   @Override
@@ -381,7 +390,7 @@ class LFunctionType54 extends LFunctionType {
     header.local.writeList(out, header, object.locals);
     int upvalueNameLength = 0;
     for(LUpvalue upvalue : object.upvalues) {
-      if(upvalue.bname != null) {
+      if(upvalue.bname != null && upvalue.bname != LString.NULL) {
         upvalueNameLength++;
       } else {
         break;
