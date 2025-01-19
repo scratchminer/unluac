@@ -117,8 +117,8 @@ public class Constant {
         } else {
           out.print("\"");
           for(int i = 0; i < string.length(); i++) {
-            char c = string.charAt(i);
-            if(c <= 31 || c >= 127) {
+            int c = string.codePointAt(i);
+            if(c <= 31 || c == 127) {
               if(c == 7) {
                 out.print("\\a");
               } else if(c == 8) {
@@ -133,7 +133,7 @@ public class Constant {
                 out.print("\\t");
               } else if(c == 11) {
                 out.print("\\v");
-              } else if(!rawstring || c <= 127) {
+              } else if(!rawstring || c == 127) {
                 String dec = Integer.toString(c);
                 int len = dec.length();
                 out.print("\\");
@@ -148,6 +148,9 @@ public class Constant {
               out.print("\\\"");
             } else if(c == 92) {
               out.print("\\\\");
+            } else if(c >= 128) {
+              if(c > 0xffff) i++;
+              out.print(new String(Character.toChars(c)));
             } else {
               out.print(Character.toString(c));
             }
