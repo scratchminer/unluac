@@ -16,6 +16,7 @@ public class VariableFinder {
       last_read = -1;
       read_count = 0;
       func_ref = -1;
+      for_value = -1;
       func = false;
       temporary = false;
       local = false;
@@ -27,6 +28,8 @@ public class VariableFinder {
     int last_read;
     int read_count;
     int func_ref;
+    int for_value;
+    
     boolean func;
     boolean temporary;
     boolean local;
@@ -145,16 +148,17 @@ public class VariableFinder {
       int C = code.C(line);
       switch(code.op(line)) {
         case MOVE:
-          states.setWritten(A, line);
           states.setRead(B, line);
+          states.setWritten(A, line);
           break;
-        //case NEWTABLE54:
+        case NEWTABLE54:
         case LOADI:
         case LOADF:
         case LOADK:
         case LOADKX:
         case LOADBOOL:
         case LOADFALSE:
+        case LFALSESKIP:
         case LOADTRUE:
           states.setWritten(A, line);
           break;
@@ -165,17 +169,18 @@ public class VariableFinder {
           break;
         }
         case GETI:
+          states.setRead(B, line);
           states.setWritten(A, line);
           break;
         case GETUPVAL:
         case GETTABUP54:
-          states.setWritten(A, line);
           if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
+          states.setWritten(A, line);
           break;
         case GETTABLE54:
-          states.setWritten(A, line);
           states.setRead(B, line);
           states.setRead(C, line);
+          states.setWritten(A, line);
           break;
         case ADDI:
         case ADDK:
@@ -190,27 +195,25 @@ public class VariableFinder {
         case BXORK:
         case SHRI:
         case SHLI:
-          states.setWritten(A, line);
           states.setRead(B, line);
+          states.setWritten(A, line);
           break;
         case SETUPVAL:
         case RETURN1:
           states.setRead(A, line);
           break;
-        case SETI:
-          if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
-          break;
         case GETFIELD:
+          states.setRead(B, line);
           states.setWritten(A, line);
           if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
           break;
+        case SETI:
         case SETTABUP54:
-          if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
-          break;
         case SETFIELD:
           if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
           break;
         case SETTABLE54:
+          states.setRead(A, line);
           states.setRead(B, line);
           if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
           break;
@@ -226,22 +229,22 @@ public class VariableFinder {
         case BXOR54:
         case SHR54:
         case SHL54:
-          states.setWritten(A, line);
           states.setRead(B, line);
           states.setRead(C, line);
+          states.setWritten(A, line);
           break;
         case SELF54:
+          if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
+          states.setRead(B, line);
           states.setWritten(A, line);
           states.setWritten(A + 1, line);
-          states.setRead(B, line);
-          if(!isConstantReference(d, code.C(line))) states.setRead(C, line);
           break;
-        case LEN:
         case UNM:
         case BNOT:
         case NOT:
-          states.setWritten(A, line);
+        case LEN:
           states.setRead(B, line);
+          states.setWritten(A, line);
           break;
         case CONCAT54: {
           for(int register = A; register < A + B; register++) {
@@ -272,14 +275,15 @@ public class VariableFinder {
           states.setRead(A, line);
           break;
         case TESTSET54:
-          states.setWritten(A, line);
           states.setRead(B, line);
+          states.setWritten(A, line);
           break;
         case CLOSURE: {
           LFunction f = d.function.functions[code.Bx(line)];
           for(LUpvalue upvalue : f.upvalues) {
             if(upvalue.instack) {
-              states.get(upvalue.idx, line).func_ref = code.Bx(line);
+              states.setRead(upvalue.idx, line);
+              states.get(upvalue.idx, states.get(upvalue.idx, line).last_written).func_ref = code.Bx(line);
             }
           }
           states.setWritten(A, line);
@@ -288,8 +292,7 @@ public class VariableFinder {
         }
         case CALL:
         case TAILCALL54: {
-          states.setTemporaryRead(A, line);
-          for(int register = A; register <= A + B - 1; register++) {
+          for(int register = A + 1; register <= A + B - 1; register++) {
             states.setRead(register, line);
           }
           if(code.op(line) != Op.TAILCALL54) {
@@ -320,6 +323,25 @@ public class VariableFinder {
           if(B == 0) B = registers - code.A(line) + 1;
           for(int register = A; register <= A + B - 2; register++) {
             states.setRead(register, line);
+          }
+          break;
+        }
+        case FORLOOP54: {
+          // set the read count to at least 2
+          states.setRead(A + 3, line);
+          states.setRead(A + 3, line);
+          break;
+        }
+        case FORPREP54:
+          states.setWritten(A, line);
+          states.setWritten(A + 1, line);
+          states.setWritten(A + 2, line);
+          states.setWritten(A + 3, line);
+          break;
+        case TFORCALL54: {
+          states.setRead(A + 1, line);
+          for (int register = A + 4; register <= A + 3 + C; register++) {
+            states.setWritten(register, line);
           }
           break;
         }
@@ -377,7 +399,6 @@ public class VariableFinder {
       boolean local = false;
       boolean temporary = false;
       int masterOverride = -1;
-      int lc = 0;
       
       List<Integer> starts = new ArrayList<Integer>();
       List<Integer> ends = new ArrayList<Integer>();
@@ -402,29 +423,6 @@ public class VariableFinder {
         }
       }
       
-      int read = 0;
-      int written = 0;
-      
-      for(int line = 1; line <= code.length(); line++) {
-        RegisterState state = states.get(register, line);
-        
-        if(states.get(register, state.last_written).temporary) continue;
-        
-        if(state.read) {
-          written = 0; read++;
-        }
-        
-        if(state.written) {
-          if(state.local || (written == 0 && read != 0 && state.read_count > 1)) {
-            locals.add(true);
-            
-            starts.add(line);
-            ends.add(state.last_read);
-          }
-          
-          read = 0; written++;
-        }
-      }
       for(int line = 1; line <= code.length(); line++) {
         RegisterState state = states.get(register, line);
         
@@ -432,17 +430,21 @@ public class VariableFinder {
           LFunction f = d.function.functions[state.func_ref];
           for(LUpvalue upvalue : f.upvalues) {
             if(upvalue.instack && upvalue.idx == register) {
-              if(!starts.contains(states.get(upvalue.idx, line).last_written)) {
-                locals.add(true);
-                starts.add(states.get(upvalue.idx, line).last_written);
-                if(states.get(upvalue.idx, states.get(upvalue.idx, line).last_written).last_read == -1) {
-                  ends.add(code.length());
-                }
-                else {
-                  ends.add(states.get(upvalue.idx, states.get(upvalue.idx, line).last_written).last_read);
-                }
-              }
+              states.get(register, state.last_written).local = true;
             }
+          }
+        }
+      }
+      for(int line = 1; line <= code.length(); line++) {
+        RegisterState state = states.get(register, line);
+        
+        if(states.get(register, state.last_written).temporary) continue;
+        
+        if(state.written) {
+          if(state.local || state.read_count > 1) {
+            locals.add(true);
+            starts.add(line);
+            ends.add(code.length());
           }
         }
       }

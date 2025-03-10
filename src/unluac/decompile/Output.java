@@ -1,5 +1,8 @@
 package unluac.decompile;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+
 public class Output {
 
   private OutputProvider out;
@@ -82,8 +85,9 @@ public class Output {
   
   public void print(String s) {
     start();
-    for(int i = 0; i < s.length(); i++) {
-      out.print((byte) s.charAt(i));
+    ByteBuffer bb = Charset.forName("UTF-8").encode(s);
+    for(int i = 0; i < bb.limit(); i++) {
+      out.print(bb.get(i));
     }
     position += s.length();
   }

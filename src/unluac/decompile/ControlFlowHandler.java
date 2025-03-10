@@ -364,8 +364,8 @@ public class ControlFlowHandler {
           }
           case EQK: {
             BinaryCondition.Operator op = BinaryCondition.Operator.EQ;
-            Condition.Operand right = new Condition.Operand(Condition.OperandType.R, code.A(line));
-            Condition.Operand left = new Condition.Operand(Condition.OperandType.K, code.B(line));
+            Condition.Operand left = new Condition.Operand(Condition.OperandType.R, code.A(line));
+            Condition.Operand right = new Condition.Operand(Condition.OperandType.K, code.B(line));
             Condition c = new BinaryCondition(op, line, left, right);
             process_condition(state, skip, line, c, code.k(line));
             break;
@@ -1285,10 +1285,14 @@ public class ControlFlowHandler {
             }
           }
           if(lowerBound > upperBound) {
-            throw new IllegalStateException();
+            int temp = upperBound;
+            upperBound = lowerBound;
+            lowerBound = temp;
           }
-          begin = Math.max(lowerBound, begin);
-          begin = Math.min(upperBound, begin);
+          else {
+            begin = Math.max(lowerBound, begin);
+            begin = Math.min(upperBound, begin);
+          }
           Block breakable = enclosing_breakable_block(state, b.line);
           if(breakable != null) {
             begin = Math.max(breakable.begin, begin);
