@@ -282,8 +282,7 @@ public class VariableFinder {
           LFunction f = d.function.functions[code.Bx(line)];
           for(LUpvalue upvalue : f.upvalues) {
             if(upvalue.instack) {
-              states.setRead(upvalue.idx, line);
-              states.get(upvalue.idx, states.get(upvalue.idx, line).last_written).func_ref = code.Bx(line);
+              states.get(upvalue.idx, states.get(upvalue.idx, line).last_written).local = true;
             }
           }
           states.setWritten(A, line);
@@ -301,7 +300,7 @@ public class VariableFinder {
                 states.setWritten(register, line);
               }
             }
-          }/*
+          }
           if(C >= 2) {
             int nline = line + 1;
             int register = A + C - 2;
@@ -309,14 +308,12 @@ public class VariableFinder {
               if(code.op(nline) == Op.MOVE && code.B(nline) == register) {
                 states.setWritten(code.A(nline), nline);
                 states.setRead(code.B(nline), nline);
-                states.setLocalWrite(code.A(nline), code.A(nline), nline);
                 skip[nline - 1] = true;
               }
               register--;
               nline++;
             }
           }
-          */
           break;
         }
         case RETURN54: {
@@ -423,18 +420,6 @@ public class VariableFinder {
         }
       }
       
-      for(int line = 1; line <= code.length(); line++) {
-        RegisterState state = states.get(register, line);
-        
-        if(state.func_ref > -1) {
-          LFunction f = d.function.functions[state.func_ref];
-          for(LUpvalue upvalue : f.upvalues) {
-            if(upvalue.instack && upvalue.idx == register) {
-              states.get(register, state.last_written).local = true;
-            }
-          }
-        }
-      }
       for(int line = 1; line <= code.length(); line++) {
         RegisterState state = states.get(register, line);
         

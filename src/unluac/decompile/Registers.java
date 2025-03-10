@@ -29,13 +29,13 @@ public class Registers {
     decls = new Declaration[registers][length + 1];
     for(int i = 0; i < declList.length; i++) {
       Declaration decl = declList[i];
-      int register = 0;
+      /*int register = 0;
       while(decls[register][decl.begin] != null) {
         register++;
       }
-      decl.register = register;
+      decl.register = register;*/
       for(int line = decl.begin; line <= decl.end; line++) {
-        decls[register][line] = decl; 
+        decls[decl.register][line] = decl; 
       }
     }
     values = new Expression[registers][length + 1];
