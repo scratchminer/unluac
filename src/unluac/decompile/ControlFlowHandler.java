@@ -384,11 +384,6 @@ public class ControlFlowHandler {
             }
             Condition.Operand left = new Condition.Operand(Condition.OperandType.R, code.A(line));
             Condition.Operand right = new Condition.Operand(operandType, code.sB(line));
-            if(op == BinaryCondition.Operator.EQ) {
-              Condition.Operand temp = left;
-              left = right;
-              right = temp;
-            }
             Condition c = new BinaryCondition(op, line, left, right);
             process_condition(state, skip, line, c, code.k(line));
             break;

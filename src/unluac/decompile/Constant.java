@@ -152,53 +152,56 @@ public class Constant {
               if(c < 0xe0) {
                 char c2;
                 if (i >= string.length() - 1 || (c2 = string.charAt(i + 1)) >= 0xc0) {
-                  String dec = Integer.toString(c, 16);
+                  String dec = Integer.toString(c);
                   int len = dec.length();
-                  out.print("\\x");
-                  while(len++ < 2) {
+                  out.print("\\");
+                  while(len++ < 3) {
                     out.print("0");
                   }
                   out.print(dec);
                 }
                 else {
                   out.print(new String(Character.toChars(((c & 0x1f) << 6) | (c2 & 0x3f))));
+                  i += 1;
                 }
               }
               else if (c < 0xf0) {
                 char c2, c3;
                 if (i >= string.length() - 2 || (c2 = string.charAt(i + 1)) >= 0xc0 || (c3 = string.charAt(i + 2)) >= 0xc0) {
-                  String dec = Integer.toString(c, 16);
+                  String dec = Integer.toString(c);
                   int len = dec.length();
-                  out.print("\\x");
-                  while(len++ < 2) {
+                  out.print("\\");
+                  while(len++ < 3) {
                     out.print("0");
                   }
                   out.print(dec);
                 }
                 else {
                   out.print(new String(Character.toChars(((c & 0x0f) << 12) | ((c2 & 0x3f) << 6) | (c3 & 0x3f))));
+                  i += 2;
                 }
               }
               else if (c < 0xf8) {
                 char c2, c3, c4;
                 if (i >= string.length() - 3 || (c2 = string.charAt(i + 1)) >= 0xc0 || (c3 = string.charAt(i + 2)) >= 0xc0 || (c4 = string.charAt(i + 3)) >= 0xc0) {
-                  String dec = Integer.toString(c, 16);
+                  String dec = Integer.toString(c);
                   int len = dec.length();
-                  out.print("\\x");
-                  while(len++ < 2) {
+                  out.print("\\");
+                  while(len++ < 3) {
                     out.print("0");
                   }
                   out.print(dec);
                 }
                 else {
                   out.print(new String(Character.toChars(((c & 0x07) << 18) | ((c2 & 0x3f) << 12) | ((c3 & 0x3f) << 6) | (c4 & 0x3f))));
+                  i += 3;
                 }
               }
               else {
-                String dec = Integer.toString(c, 16);
+                String dec = Integer.toString(c);
                 int len = dec.length();
-                out.print("\\x");
-                while(len++ < 2) {
+                out.print("\\");
+                while(len++ < 3) {
                   out.print("0");
                 }
                 out.print(dec);

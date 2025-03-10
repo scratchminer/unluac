@@ -2,6 +2,7 @@ package unluac.decompile.condition;
 
 import unluac.decompile.Registers;
 import unluac.decompile.expression.BinaryExpression;
+import unluac.decompile.expression.UnaryExpression;
 import unluac.decompile.expression.Expression;
 
 public class BinaryCondition implements Condition {
@@ -17,10 +18,10 @@ public class BinaryCondition implements Condition {
   private static String operator_to_string(Operator op, boolean inverted, boolean transposed) {
     switch(op) {
       case EQ: return inverted ? "~=" : "==";
-      case LT: return transposed ? ">" : "<";
-      case LE: return transposed ? ">=" : "<=";
-      case GT: return transposed ? "<" : ">";
-      case GE: return transposed ? "<=" : ">=";
+      case LT: return (inverted ^ transposed) ? ">" : "<";
+      case LE: return (inverted ^ transposed) ? ">=" : "<=";
+      case GT: return (inverted ^ transposed) ? "<" : ">";
+      case GE: return (inverted ^ transposed) ? "<=" : ">=";
     }
     throw new IllegalStateException();
   }
@@ -88,7 +89,7 @@ public class BinaryCondition implements Condition {
     Expression leftExpression = left.asExpression(r, line);
     Expression rightExpression = right.asExpression(r, line);
     if(op != Operator.EQ || left.type == OperandType.K) {
-      if(left.isRegister(r) && right.isRegister(r)) {
+      if(op != Operator.EQ && left.isRegister(r) && right.isRegister(r)) {
         transpose = left.getUpdated(r, line) > right.getUpdated(r, line);
       } else {
         int rightIndex = rightExpression.getConstantIndex();
@@ -104,8 +105,7 @@ public class BinaryCondition implements Condition {
     }
     String opstring = operator_to_string(op, inverted, transpose);
     Expression rtn = new BinaryExpression(opstring, !transpose ? leftExpression : rightExpression, !transpose ? rightExpression : leftExpression, Expression.PRECEDENCE_COMPARE, Expression.ASSOCIATIVITY_LEFT);
-    /*
-    if(inverted) {
+    /*if(inverted) {
       rtn = new UnaryExpression("not ", rtn, Expression.PRECEDENCE_UNARY);
     }
     */
