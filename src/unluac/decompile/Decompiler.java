@@ -73,7 +73,7 @@ public class Decompiler {
     registers = function.maximumStackSize;
     length = function.code.length;
     code = new Code(function);
-    if(function.stripped) {
+    if(getNoDebug()) {
       if(function.locals.length >= function.numParams) {
         Declaration[] tempdeclList = new Declaration[function.locals.length];
         for(int i = 0; i < tempdeclList.length; i++) {
